@@ -117,6 +117,7 @@ _All lost time is a time loss (FR-023), so every category reduces Availability t
 - **FR-045a** — **Zero-work day:** a day with time logged but **0 Work points**, such as a full day of System Down, is a **0% working day**, not a holiday. **All values** (Availability, Efficiency, Quality, OEE) show **0**. The day **counts** in weekly figures: its minutes and target are added to the week's totals.
 - **FR-046** — **Efficiency** (the Performance factor) uses a daily constant: **target Work points per day**, with a default of **20**.
 - **FR-047** — On a day with extra time, from an **early start or a late finish**, the target **rises by 1 point per extra 20 minutes**. For example, starting at 08:40 and finishing at 18:20 (+60 min) gives a target of 23.
+- **FR-047a** — On a **shorter** day, from a **late start or an early finish**, the target **drops by 1 point per 20 minutes missed**. For example, 09:20–17:00 (−60 min) gives a target of 17. Part-blocks don't count either way, and gains and losses net off (08:40–17:20 stays at 20).
 - **FR-048** — Efficiency **can exceed 100%**. When it does, the day gets an **over-capacity flag**.
 
   **Formula (confirmed):** `Efficiency = Work points / Target points`
@@ -169,7 +170,7 @@ _Entities and key fields._
 
 ## 9. Open Questions
 **Open**
-- Q34: On a **shorter** day (late start or early finish), does the target stay at 20, or drop by 1 per 20 minutes missed? The engine currently keeps 20.
+- _None at present._
 
 **Implementation notes (engine v0.1)**
 - Lost blocks from a stop are placed on the blocks the stop overlaps most; ties go to the earlier block.
@@ -180,6 +181,7 @@ _Entities and key fields._
 
 **Resolved**
 - Q33: Planned Downtime counts in whole 20-minute blocks, for now (FR-038).
+- Q34: A shorter day drops the target by 1 per 20 minutes missed (FR-047a).
 - Q32: Test data uses a 520-min day; "down time" is Planned Downtime; Change Over already halved (Appendix A).
 - Q8: Lost-time categories defined; all reduce Availability (FR-009).
 - Q25: Change Over counts as 10 minutes of downtime (FR-015).
@@ -263,3 +265,4 @@ _Weekly totals: 2,600 day min, 550 planned, 400 downtime, 74 points against a ta
 - 2026-10-26 — Appendix A recalculated on a 520-min day; data notes confirmed
 - 2026-10-26 — Engine v0.1 built and tested. Corrected FR-050 example to 59.3%. Added Q33, Q34 and implementation notes.
 - 2026-10-26 — Planned Downtime counted in whole 20-minute blocks (FR-038); engine updated
+- 2026-10-26 — Shorter day drops the target by 1 per 20 minutes missed (FR-047a); engine updated

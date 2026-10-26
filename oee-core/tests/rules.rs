@@ -48,6 +48,16 @@ fn daily_target() {
     assert_eq!(s.target_points(hm(8, 40), hm(18, 20)), 23);
     // Partial extra block doesn't count.
     assert_eq!(s.target_points(hm(9, 0), hm(17, 50)), 20);
+    // FR-047a: late start, −1 per 20 min missed.
+    assert_eq!(s.target_points(hm(9, 20), hm(17, 40)), 19);
+    // FR-047a: early finish, −2.
+    assert_eq!(s.target_points(hm(9, 0), hm(17, 0)), 18);
+    // Late start and early finish: 10:00–15:00 misses 220 min → −11.
+    assert_eq!(s.target_points(hm(10, 0), hm(15, 0)), 9);
+    // Early start and early finish cancel out.
+    assert_eq!(s.target_points(hm(8, 40), hm(17, 20)), 20);
+    // Partial missed block doesn't count.
+    assert_eq!(s.target_points(hm(9, 10), hm(17, 40)), 20);
 }
 
 #[test]

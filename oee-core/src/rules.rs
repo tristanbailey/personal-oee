@@ -55,11 +55,16 @@ impl Default for Settings {
 impl Settings {
     /// Daily target Work points for a day running `start..end`.
     ///
-    /// FR-046, FR-047: base target, plus 1 per extra 20 minutes from an early
-    /// start or a late finish. A shorter day keeps the base target.
+    /// FR-046, FR-047, FR-047a: base target, plus 1 per extra 20 minutes from an
+    /// early start or a late finish, minus 1 per 20 minutes missed through a late
+    /// start or an early finish. Part-blocks don't count either way.
     pub fn target_points(&self, start: u32, end: u32) -> u32 {
-        let early = self.default_start.saturating_sub(start);
-        let late = end.saturating_sub(self.default_end);
-        self.base_target + (early + late) / BLOCK_MINUTES
+        let early_start = self.default_start.saturating_sub(start);
+        let late_finish = end.saturating_sub(self.default_end);
+        let late_start = start.saturating_sub(self.default_start);
+        let early_finish = self.default_end.saturating_sub(end);
+        let gained = (early_start + late_finish) / BLOCK_MINUTES;
+        let missed = (late_start + early_finish) / BLOCK_MINUTES;
+        (self.base_target + gained).saturating_sub(missed)
     }
 }
