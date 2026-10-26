@@ -6,7 +6,7 @@ A Mac desktop app that tracks the working day in 20-minute blocks and scores it 
 
 | Part | State |
 |---|---|
-| `oee-core`: rules, OEE maths, weekly pooling, calendar, day timeline, live tracker | ✅ Built, 24 tests passing |
+| `oee-core`: rules, OEE maths, weekly pooling, calendar, day timeline, live tracker | ✅ Built, 25 tests passing |
 | Storage (SQLite) | Next |
 | Mac app: window, menu-bar timer, global shortcut, reminders, reports | Next |
 

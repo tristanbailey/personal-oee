@@ -90,8 +90,11 @@ pub struct DayRecord {
 }
 
 impl DayRecord {
-    pub fn new(start: u32, end: u32, mut planned: Vec<PlannedWindow>) -> Self {
+    /// Planned windows are snapped outwards to the day's 20-minute grid, so a
+    /// 09:30–10:00 meeting on a 09:00 start becomes 09:20–10:00 (40 min).
+    pub fn new(start: u32, end: u32, planned: Vec<PlannedWindow>) -> Self {
         assert!(end > start, "day must end after it starts");
+        let mut planned: Vec<_> = planned.into_iter().map(|w| snap(w, start)).collect();
         planned.sort_by_key(|w| w.start);
         Self {
             start,
@@ -157,7 +160,8 @@ impl DayRecord {
             (s, s + BLOCK_MINUTES)
         };
 
-        // 1. Planned Downtime: a slot is planned when at least half of it is planned.
+        // 1. Planned Downtime. Windows are already on the grid (see `new`), so a
+        //    slot is either fully planned or not planned at all.
         let mut kinds: Vec<Option<BlockKind>> = (0..n)
             .map(|i| {
                 let (s, e) = slot(i);
@@ -171,7 +175,7 @@ impl DayRecord {
                     .iter()
                     .map(|w| overlap(s, e, w.start, w.end))
                     .sum();
-                (planned >= BLOCK_MINUTES / 2).then_some(BlockKind::Planned(best.1))
+                (planned > 0).then_some(BlockKind::Planned(best.1))
             })
             .collect();
 
@@ -312,6 +316,27 @@ impl DayRecord {
             target_points: settings.target_points(self.start, self.end),
         }
     }
+}
+
+/// Snap a planned window outwards to whole 20-minute blocks from `day_start`.
+fn snap(mut w: PlannedWindow, day_start: u32) -> PlannedWindow {
+    let down = |t: u32| {
+        if t <= day_start {
+            t
+        } else {
+            day_start + (t - day_start) / BLOCK_MINUTES * BLOCK_MINUTES
+        }
+    };
+    let up = |t: u32| {
+        if t <= day_start {
+            t
+        } else {
+            day_start + (t - day_start).div_ceil(BLOCK_MINUTES) * BLOCK_MINUTES
+        }
+    };
+    w.start = down(w.start);
+    w.end = up(w.end);
+    w
 }
 
 fn overlap(a_start: u32, a_end: u32, b_start: u32, b_end: u32) -> u32 {

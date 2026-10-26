@@ -133,6 +133,7 @@ _All lost time is a time loss (FR-023), so every category reduces Availability t
 - **FR-035** — Calendar entries are **entered by hand** in this version.
 - **FR-036** — When a Planned Downtime period starts, the app **auto-switches** to Planned Downtime, ending any unplanned downtime in progress.
 - **FR-037** — When Planned Downtime ends, the app **returns to Work**.
+- **FR-038** — Planned Downtime is **counted in whole 20-minute blocks**. Any block a planned window touches is planned, and planned minutes are those blocks × 20. For example, on a 09:00 start a 09:30–10:00 meeting covers the 09:20 and 09:40 blocks, so it counts as **40 minutes**. Running downtime ends at the start of the first planned block (FR-036).
 
 ### 5.5 Reporting
 - **FR-040** — **Daily OEE** report: Availability, Efficiency, Quality and overall OEE for the day.
@@ -168,7 +169,6 @@ _Entities and key fields._
 
 ## 9. Open Questions
 **Open**
-- Q33: A planned window that isn't on the 20-minute grid (e.g. a 09:30–10:00 meeting on a 09:00 start) only part-covers a block. The engine tags a block as Planned when **at least 10 minutes** of it is planned, while Availability still uses the exact planned minutes. Is that right?
 - Q34: On a **shorter** day (late start or early finish), does the target stay at 20, or drop by 1 per 20 minutes missed? The engine currently keeps 20.
 
 **Implementation notes (engine v0.1)**
@@ -179,6 +179,7 @@ _Entities and key fields._
 - A leftover part-block at the end of a day that isn't a multiple of 20 minutes counts in day minutes but isn't a block.
 
 **Resolved**
+- Q33: Planned Downtime counts in whole 20-minute blocks, for now (FR-038).
 - Q32: Test data uses a 520-min day; "down time" is Planned Downtime; Change Over already halved (Appendix A).
 - Q8: Lost-time categories defined; all reduce Availability (FR-009).
 - Q25: Change Over counts as 10 minutes of downtime (FR-015).
@@ -261,3 +262,4 @@ _Weekly totals: 2,600 day min, 550 planned, 400 downtime, 74 points against a ta
 - 2026-10-26 — Added Appendix A: Week 4 worked test data with expected daily and weekly results
 - 2026-10-26 — Appendix A recalculated on a 520-min day; data notes confirmed
 - 2026-10-26 — Engine v0.1 built and tested. Corrected FR-050 example to 59.3%. Added Q33, Q34 and implementation notes.
+- 2026-10-26 — Planned Downtime counted in whole 20-minute blocks (FR-038); engine updated

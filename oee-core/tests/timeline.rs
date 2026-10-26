@@ -49,16 +49,40 @@ fn planned_blocks_are_auto_tagged() {
 }
 
 #[test]
-fn off_grid_meeting_tags_blocks_it_mostly_covers() {
-    // 09:30–10:00: 10 min of the 09:20 block and all of the 09:40 block.
+fn off_grid_meeting_counts_in_whole_blocks() {
+    // FR-038: 09:30–10:00 touches the 09:20 and 09:40 blocks, so it counts as 40 min.
     let m = PlannedWindow::new(hm(9, 30), hm(10, 0), PlannedKind::Meeting, "1:1");
     let r = DayRecord::new(hm(9, 0), hm(17, 40), vec![m]);
     let b = r.blocks();
     assert_eq!(b[0].kind, BlockKind::Work { rework: false });
     assert_eq!(b[1].kind, BlockKind::Planned(PlannedKind::Meeting));
     assert_eq!(b[2].kind, BlockKind::Planned(PlannedKind::Meeting));
-    // Availability uses the exact planned minutes.
-    assert_eq!(r.planned_minutes(), 30);
+    assert_eq!(b[3].kind, BlockKind::Work { rework: false });
+    assert_eq!(r.planned_minutes(), 40);
+    assert_eq!(r.planned[0].start, hm(9, 20));
+
+    // Grid follows the day's start: on an 08:50 start, 09:30–10:00 → 09:30–10:10 (40 min).
+    let m = PlannedWindow::new(hm(9, 30), hm(10, 0), PlannedKind::Meeting, "1:1");
+    let r = DayRecord::new(hm(8, 50), hm(17, 40), vec![m]);
+    assert_eq!(r.planned_minutes(), 40);
+    assert_eq!(r.planned[0].start, hm(9, 30));
+}
+
+#[test]
+fn off_grid_meeting_ends_downtime_at_its_block() {
+    // The 09:30 meeting's block starts at 09:20, so running downtime ends there.
+    let m = PlannedWindow::new(hm(9, 30), hm(10, 0), PlannedKind::Meeting, "1:1");
+    let mut t = Tracker::start_day(hm(9, 0), vec![m], Settings::default());
+    t.toggle_downtime(hm(9, 5));
+    t.tick(hm(9, 21));
+    assert_eq!(
+        t.record.downtime,
+        vec![DowntimeEvent {
+            start: hm(9, 5),
+            end: hm(9, 20)
+        }]
+    );
+    assert!(matches!(t.mode(), Mode::Planned { until, .. } if until == hm(10, 0)));
 }
 
 #[test]
