@@ -1,0 +1,8 @@
+[package]
+name = "oee-core"
+description = "Personal OEE engine: 20-minute blocks, downtime rules and OEE maths. Pure logic, no I/O."
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+
+[dependencies]

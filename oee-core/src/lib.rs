@@ -1,0 +1,32 @@
+//! Personal OEE engine.
+//!
+//! Pure logic with no I/O, so every rule in the PRD (`docs/PRD.md`) can be unit
+//! tested on its own. Requirement IDs (FR-xxx) in the docs refer to that PRD.
+//!
+//! Times are minutes since midnight (`u32`), e.g. `9 * 60` is 09:00.
+//! Use [`rules::hm`] to write them readably.
+//!
+//! Layers:
+//! - [`rules`]: constants, block counting, daily target.
+//! - [`category`]: lost-time categories and per-category loss minutes.
+//! - [`metrics`]: daily Availability, Efficiency, Quality, OEE.
+//! - [`week`]: pooled weekly figures and report helpers.
+//! - [`calendar`]: the repeating weekly Planned Downtime calendar.
+//! - [`timeline`]: a day's 20-minute blocks, built from downtime events and edits.
+//! - [`tracker`]: the live state machine driven by the shortcut and the clock.
+
+pub mod calendar;
+pub mod category;
+pub mod metrics;
+pub mod rules;
+pub mod timeline;
+pub mod tracker;
+pub mod week;
+
+pub use calendar::{PlannedWindow, Weekday, WeeklyCalendar};
+pub use category::{LossMinutes, LostCategory, PlannedKind};
+pub use metrics::{day_result, DayInputs, DayResult, DayStatus, Metrics};
+pub use rules::{hm, lost_blocks, Settings, BLOCK_MINUTES};
+pub use timeline::{Block, BlockKind, DayRecord, DowntimeEvent, EditError};
+pub use tracker::{Mode, Notice, Tracker};
+pub use week::{over_capacity_days, week_report, WeekReport};
