@@ -1,6 +1,8 @@
 //! The four metric tiles on the Today screen (D-20).
 
-use eframe::egui::{self, Color32, RichText};
+use eframe::egui::{self, RichText, Stroke};
+
+use crate::theme;
 use oee_core::{DayInputs, DayResult, DayStatus, Metrics, WeekReport};
 
 /// FR-040: percentages to one decimal place.
@@ -91,30 +93,31 @@ pub fn banners(result: &DayResult, ended: bool) -> Vec<Banner> {
 }
 
 pub fn show_banner(ui: &mut egui::Ui, banner: &Banner) {
-    let (fill, ink) = match banner.tone {
-        BannerTone::Warn => (Color32::from_rgb(0x3e, 0x2e, 0x10), Color32::from_rgb(0xf0, 0xa6, 0x2a)),
-        BannerTone::Bad => (Color32::from_rgb(0x4a, 0x1f, 0x1c), Color32::from_rgb(0xef, 0x5b, 0x50)),
+    let p = theme::of(ui);
+    let (fill, edge) = match banner.tone {
+        BannerTone::Warn => (p.change_soft, p.change),
+        BannerTone::Bad => (p.down_soft, p.down),
     };
     egui::Frame::none()
         .fill(fill)
+        .stroke(Stroke::new(1.0_f32, edge))
         .rounding(6.0)
         .inner_margin(8.0)
         .show(ui, |ui| {
             ui.set_width(ui.available_width());
-            ui.label(RichText::new(banner.text).color(ink).strong());
+            ui.label(RichText::new(banner.text).color(p.ink).strong());
         });
 }
 
 pub fn show(ui: &mut egui::Ui, tiles: &[Tile; 4]) {
     ui.columns(4, |cols| {
         for (ui, tile) in cols.iter_mut().zip(tiles) {
-            let (fill, ink) = if tile.inverted {
-                (Color32::from_rgb(0x15, 0x19, 0x1a), Color32::from_rgb(0xe6, 0xeb, 0xe9))
-            } else {
-                (ui.visuals().faint_bg_color, ui.visuals().text_color())
-            };
+            let p = theme::of(ui);
+            // The OEE tile is inverted: ink for the fill, the page colour for text.
+            let (fill, ink) = if tile.inverted { (p.ink, p.bg) } else { (p.surface, p.ink) };
             egui::Frame::none()
                 .fill(fill)
+                .stroke(Stroke::new(1.0_f32, p.line))
                 .rounding(8.0)
                 .inner_margin(10.0)
                 .show(ui, |ui| {

@@ -194,7 +194,7 @@ pub fn show(ui: &mut egui::Ui, form: &mut SettingsForm) -> bool {
         });
     ui.add_space(8.0);
     if let Some(e) = &form.error {
-        ui.colored_label(egui::Color32::LIGHT_RED, e);
+        crate::theme::error(ui, e);
     } else if form.saved {
         ui.label("Saved.");
     }

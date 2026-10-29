@@ -3,6 +3,8 @@
 use eframe::egui::{self, Color32, Pos2, Rect, Sense, Shape, Stroke, Vec2};
 use oee_core::{BlockKind, DayRecord, LostCategory, Mode, PlannedKind};
 
+use crate::theme::{self, Palette};
+
 /// How a cell is coloured.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Fill {
@@ -98,16 +100,14 @@ pub fn rows(record: &DayRecord, now: u32, mode: Mode) -> Vec<Row> {
     rows
 }
 
-fn colours(fill: Fill) -> (Color32, Color32) {
-    // (fill, accent) from the prototype's dark-mode tokens.
+fn colours(fill: Fill, p: &Palette) -> (Color32, Color32) {
+    // (fill, outline)
     match fill {
-        Fill::Work => (Color32::from_rgb(0x18, 0x3a, 0x26), Color32::from_rgb(0x46, 0xb8, 0x74)),
-        Fill::Lost | Fill::Uncategorised => {
-            (Color32::from_rgb(0x4a, 0x1f, 0x1c), Color32::from_rgb(0xef, 0x5b, 0x50))
-        }
-        Fill::ChangeOver => (Color32::from_rgb(0x3e, 0x2e, 0x10), Color32::from_rgb(0xf0, 0xa6, 0x2a)),
-        Fill::Planned => (Color32::from_rgb(0x1e, 0x2b, 0x3e), Color32::from_rgb(0x84, 0xa6, 0xdc)),
-        Fill::Future => (Color32::TRANSPARENT, Color32::from_gray(110)),
+        Fill::Work => (p.work_soft, p.work),
+        Fill::Lost | Fill::Uncategorised => (p.down_soft, p.down),
+        Fill::ChangeOver => (p.change_soft, p.change),
+        Fill::Planned => (p.plan_soft, p.plan),
+        Fill::Future => (Color32::TRANSPARENT, p.muted),
     }
 }
 
@@ -136,7 +136,8 @@ fn paint_cell(ui: &mut egui::Ui, size: Vec2, cell: &Cell) -> bool {
             ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
         }
     }
-    let (fill, accent) = colours(cell.fill);
+    let pal = theme::of(ui);
+    let (fill, accent) = colours(cell.fill, &pal);
     let p = ui.painter();
     p.rect_filled(rect, 6.0, fill);
 
@@ -165,13 +166,7 @@ fn paint_cell(ui: &mut egui::Ui, size: Vec2, cell: &Cell) -> bool {
             .rect_stroke(rect, 6.0, Stroke::new(2.5_f32, ui.visuals().strong_text_color()));
     }
 
-    // The fills are dark, so filled cells always use light text; "not yet"
-    // cells are transparent and follow the theme.
-    let ink = if cell.fill == Fill::Future {
-        ui.visuals().text_color()
-    } else {
-        Color32::from_rgb(0xe6, 0xeb, 0xe9)
-    };
+    let ink = if cell.fill == Fill::Future { pal.muted } else { pal.ink };
     ui.painter().text(
         rect.left_top() + Vec2::new(8.0, 6.0),
         egui::Align2::LEFT_TOP,
@@ -190,12 +185,12 @@ fn paint_cell(ui: &mut egui::Ui, size: Vec2, cell: &Cell) -> bool {
     let mut dot_x = rect.right() - 10.0;
     if cell.rework {
         ui.painter()
-            .circle_filled(Pos2::new(dot_x, rect.top() + 10.0), 4.0, REWORK_DOT);
+            .circle_filled(Pos2::new(dot_x, rect.top() + 10.0), 4.0, pal.rework);
         dot_x -= 12.0;
     }
     if cell.has_note {
         ui.painter()
-            .circle_filled(Pos2::new(dot_x, rect.top() + 10.0), 4.0, Color32::from_gray(150));
+            .circle_filled(Pos2::new(dot_x, rect.top() + 10.0), 4.0, pal.muted);
     }
     response.clicked()
 }
@@ -228,13 +223,12 @@ pub const LEGEND: [(Fill, &str); 6] = [
     (Fill::Future, "Not yet"),
 ];
 
-const REWORK_DOT: Color32 = Color32::from_rgb(0xb0, 0x8a, 0xe6);
-
 pub fn show_legend(ui: &mut egui::Ui) {
     ui.horizontal_wrapped(|ui| {
         for (fill, name) in LEGEND {
             let (rect, _) = ui.allocate_exact_size(Vec2::splat(14.0), Sense::hover());
-            let (bg, accent) = colours(fill);
+            let pal = theme::of(ui);
+            let (bg, accent) = colours(fill, &pal);
             ui.painter().rect_filled(rect, 3.0, bg);
             match fill {
                 Fill::Future | Fill::Uncategorised => dashed_outline(ui, rect, Stroke::new(1.0_f32, accent)),
@@ -246,7 +240,8 @@ pub fn show_legend(ui: &mut egui::Ui) {
             ui.label(egui::RichText::new(name).small());
             ui.add_space(6.0);
         }
-        for (colour, name) in [(REWORK_DOT, "Rework"), (Color32::from_gray(150), "Note")] {
+        let pal = theme::of(ui);
+        for (colour, name) in [(pal.rework, "Rework"), (pal.muted, "Note")] {
             let (rect, _) = ui.allocate_exact_size(Vec2::splat(14.0), Sense::hover());
             ui.painter().circle_filled(rect.center(), 4.0, colour);
             ui.label(egui::RichText::new(name).small());

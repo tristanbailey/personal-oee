@@ -13,6 +13,7 @@ mod reminder;
 mod start;
 mod settings;
 mod store;
+mod theme;
 mod tray;
 mod tabs;
 mod week_screen;
@@ -614,7 +615,7 @@ impl eframe::App for App {
                     ui.label(line);
                 }
                 if let Some(e) = &self.start_error {
-                    ui.colored_label(egui::Color32::LIGHT_RED, e);
+                    theme::error(ui, e);
                 }
                 if ui.button("Start day").clicked() {
                     match start::validate_start(input, now) {
@@ -704,7 +705,10 @@ fn main() -> eframe::Result<()> {
     eframe::run_native(
         "Personal OEE",
         options,
-        Box::new(|cc| Ok(Box::new(App::new(cc.egui_ctx.clone())))),
+        Box::new(|cc| {
+            theme::apply(&cc.egui_ctx);
+            Ok(Box::new(App::new(cc.egui_ctx.clone())))
+        }),
     )
 }
 

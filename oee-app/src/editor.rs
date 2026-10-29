@@ -1,6 +1,6 @@
 //! The block editor: a modal opened by clicking a block (D-25, D-26).
 
-use eframe::egui::{self, Color32, RichText};
+use eframe::egui::{self, RichText};
 use oee_core::{Block, BlockKind, DayRecord, LostCategory, Mode, PlannedKind};
 
 /// FR-025: notes are optional and capped.
@@ -147,14 +147,17 @@ pub fn show(ctx: &egui::Context, ed: &mut Editor) -> Outcome {
                 Kind::Lost { category } => {
                     for c in LostCategory::ALL {
                         let selected = *category == Some(c);
-                        let fill = match (selected, c) {
-                            (true, LostCategory::ChangeOver) => Color32::from_rgb(0x8a, 0x5a, 0x00),
-                            (true, _) => Color32::from_rgb(0x8c, 0x2a, 0x22),
-                            _ => ui.visuals().widgets.inactive.weak_bg_fill,
+                        let p = crate::theme::of(ui);
+                        // Selected: the status colour as a thick outline on its soft fill.
+                        let (fill, edge) = match (selected, c) {
+                            (true, LostCategory::ChangeOver) => (p.change_soft, p.change),
+                            (true, _) => (p.down_soft, p.down),
+                            _ => (p.surface, p.line),
                         };
                         let text = format!("{}\n{}", c.label(), c.description());
                         let button = egui::Button::new(text)
                             .fill(fill)
+                            .stroke(egui::Stroke::new(if selected { 2.0_f32 } else { 1.0_f32 }, edge))
                             .min_size(egui::vec2(ui.available_width(), 44.0));
                         if ui.add(button).clicked() {
                             *category = Some(c);
@@ -186,7 +189,7 @@ pub fn show(ctx: &egui::Context, ed: &mut Editor) -> Outcome {
                     .char_limit(NOTE_LIMIT),
             );
             if let Some(e) = &ed.error {
-                ui.colored_label(Color32::LIGHT_RED, e);
+                crate::theme::error(ui, e);
             }
             ui.add_space(6.0);
             ui.horizontal(|ui| {

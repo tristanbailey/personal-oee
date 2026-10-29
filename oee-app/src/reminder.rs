@@ -1,6 +1,8 @@
 //! Categorisation banners and the Finish day button (D-28, FR-026, FR-027).
 
-use eframe::egui::{self, Color32, RichText};
+use eframe::egui::{self, RichText, Stroke};
+
+use crate::theme;
 use oee_core::{Mode, Tracker};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -44,14 +46,16 @@ pub fn categorise_banner(t: &Tracker) -> Option<CategoriseBanner> {
 /// Draw the banner. Returns true if Finish day was pressed.
 pub fn show(ui: &mut egui::Ui, banner: &CategoriseBanner) -> bool {
     let mut finish = false;
+    let p = theme::of(ui);
     egui::Frame::none()
-        .fill(Color32::from_rgb(0x3e, 0x2e, 0x10))
+        .fill(p.change_soft)
+        .stroke(Stroke::new(1.0_f32, p.change))
         .rounding(6.0)
         .inner_margin(8.0)
         .show(ui, |ui| {
             ui.set_width(ui.available_width());
             ui.horizontal(|ui| {
-                ui.label(RichText::new(&banner.text).color(Color32::from_rgb(0xf0, 0xa6, 0x2a)));
+                ui.label(RichText::new(&banner.text).color(p.ink));
                 if banner.finish_button {
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                         finish = ui.button("Finish day").clicked();

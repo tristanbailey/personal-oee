@@ -1,6 +1,8 @@
 //! The andon panel: stack light, status word and toggle (D-15 to D-18).
 
 use eframe::egui::{self, Color32, Sense, Stroke, Vec2};
+
+use crate::theme;
 use oee_core::{Mode, PlannedKind, StopSummary, Tracker, BLOCK_MINUTES};
 
 fn hhmm(m: u32) -> String {
@@ -158,15 +160,16 @@ pub fn toggle_button(mode: Mode) -> ToggleButton {
 
 /// Draw the big button across the full width. Returns the action if pressed.
 pub fn big_toggle(ui: &mut egui::Ui, spec: ToggleButton) -> Option<ToggleAction> {
-    let fill = match spec.tone {
-        Tone::Red => Color32::from_rgb(0xc2, 0x35, 0x2b),
-        Tone::Green => Color32::from_rgb(0x1d, 0x80, 0x48),
-        Tone::Neutral => Color32::from_gray(70),
+    let p = theme::of(ui);
+    let (fill, text_colour) = match spec.tone {
+        Tone::Red => (p.down, p.on_fill),
+        Tone::Green => (p.work, p.on_fill),
+        Tone::Neutral => (p.line, p.muted),
     };
     let text = egui::RichText::new(spec.label)
         .size(22.0)
         .strong()
-        .color(Color32::WHITE);
+        .color(text_colour);
     let button = egui::Button::new(text)
         .fill(fill)
         .min_size(Vec2::new(ui.available_width(), 52.0));
@@ -183,9 +186,10 @@ pub fn stack_light(ui: &mut egui::Ui, lit: Lamps) {
     let p = ui.painter();
     p.rect_filled(rect, 10.0, Color32::from_gray(30));
     let lamps = [
-        (lit.red, Color32::from_rgb(0xef, 0x5b, 0x50)),
-        (lit.amber, Color32::from_rgb(0xf0, 0xa6, 0x2a)),
-        (lit.green, Color32::from_rgb(0x46, 0xb8, 0x74)),
+        // The lamps sit in a dark housing, so they use the bright dark-mode colours.
+        (lit.red, theme::DARK.down),
+        (lit.amber, theme::DARK.change),
+        (lit.green, theme::DARK.work),
     ];
     for (i, (on, colour)) in lamps.into_iter().enumerate() {
         let centre = egui::pos2(

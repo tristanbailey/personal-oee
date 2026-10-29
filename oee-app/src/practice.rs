@@ -37,9 +37,15 @@ impl Practice {
 /// The practice buttons. Returns nothing: it changes `practice` directly.
 #[cfg(debug_assertions)]
 pub fn show(ui: &mut eframe::egui::Ui, practice: &mut Practice, now: u32) {
-    use eframe::egui::{Color32, RichText};
+    use eframe::egui::RichText;
+    let p = crate::theme::of(ui);
     ui.separator();
-    ui.label(RichText::new("Practice").color(Color32::from_rgb(0xf0, 0xa6, 0x2a)).small());
+    ui.label(
+        RichText::new(" Practice ")
+            .small()
+            .color(p.ink)
+            .background_color(p.change_soft),
+    );
     for step in Practice::STEPS {
         if ui.small_button(format!("+{step}")).clicked() {
             practice.add(step);
@@ -52,7 +58,8 @@ pub fn show(ui: &mut eframe::egui::Ui, practice: &mut Practice, now: u32) {
         ui.label(
             RichText::new(format!("+{} min → {:02}:{:02}", practice.offset, now / 60, now % 60))
                 .small()
-                .color(Color32::from_rgb(0xf0, 0xa6, 0x2a)),
+                .color(p.ink)
+                .background_color(p.change_soft),
         );
     }
 }

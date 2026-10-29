@@ -153,7 +153,7 @@ fn show_form(ui: &mut egui::Ui, calendar: &mut WeeklyCalendar, form: &mut AddFor
         }
     });
     if let Some(e) = &form.error {
-        ui.colored_label(egui::Color32::LIGHT_RED, e);
+        crate::theme::error(ui, e);
     }
 }
 

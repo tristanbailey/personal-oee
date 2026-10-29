@@ -7,6 +7,7 @@ use oee_core::{
     WeekReport, BLOCK_MINUTES,
 };
 
+use crate::theme;
 use crate::tiles::{pct, week_tiles, Tile};
 
 /// The Monday of the week containing `date`.
@@ -100,22 +101,25 @@ impl Pill {
     }
 
     pub fn show(self, ui: &mut egui::Ui) {
-        let (bg, ink) = self.colours();
-        ui.label(
-            RichText::new(format!(" {} ", self.label()))
-                .small()
-                .color(ink)
-                .background_color(bg),
-        );
+        let p = theme::of(ui);
+        let (fill, edge) = self.colours(&p);
+        egui::Frame::none()
+            .fill(fill)
+            .stroke(egui::Stroke::new(1.0_f32, edge))
+            .rounding(10.0)
+            .inner_margin(egui::Margin::symmetric(8.0, 1.0))
+            .show(ui, |ui| {
+                ui.label(RichText::new(self.label()).small().color(p.ink));
+            });
     }
 
-    fn colours(self) -> (Color32, Color32) {
-        // (background, text) from the prototype's dark-mode tokens.
+    /// (fill, outline) from the prototype's status colours.
+    fn colours(self, p: &theme::Palette) -> (Color32, Color32) {
         match self {
-            Pill::Worked => (Color32::from_rgb(0x18, 0x3a, 0x26), Color32::from_rgb(0x46, 0xb8, 0x74)),
-            Pill::OverCapacity => (Color32::from_rgb(0x1e, 0x2b, 0x3e), Color32::from_rgb(0x84, 0xa6, 0xdc)),
-            Pill::ZeroDay => (Color32::from_rgb(0x4a, 0x1f, 0x1c), Color32::from_rgb(0xef, 0x5b, 0x50)),
-            Pill::Holiday => (Color32::from_gray(50), Color32::from_gray(160)),
+            Pill::Worked => (p.work_soft, p.work),
+            Pill::OverCapacity => (p.plan_soft, p.plan),
+            Pill::ZeroDay => (p.down_soft, p.down),
+            Pill::Holiday => (p.surface, p.muted),
         }
     }
 }
@@ -207,16 +211,17 @@ pub fn show_loss_bars(ui: &mut egui::Ui, bars: &[Bar]) {
     ui.label(RichText::new("Where time was lost").strong());
     ui.add_space(4.0);
     for bar in bars {
+        let p = theme::of(ui);
         let colour = match bar.kind {
-            BarKind::Lost => Color32::from_rgb(0xef, 0x5b, 0x50),
-            BarKind::ChangeOver => Color32::from_rgb(0xf0, 0xa6, 0x2a),
-            BarKind::Rework => Color32::from_rgb(0xb0, 0x8a, 0xe6),
+            BarKind::Lost => p.down,
+            BarKind::ChangeOver => p.change,
+            BarKind::Rework => p.rework,
         };
         ui.horizontal(|ui| {
             ui.add_sized([110.0, 18.0], egui::Label::new(bar.label));
             let track = (ui.available_width() - 90.0).max(40.0);
             let (rect, _) = ui.allocate_exact_size(egui::vec2(track, 14.0), egui::Sense::hover());
-            ui.painter().rect_filled(rect, 4.0, ui.visuals().faint_bg_color);
+            ui.painter().rect_filled(rect, 4.0, p.line);
             if bar.fraction > 0.0 {
                 let mut filled = rect;
                 filled.set_width((track * bar.fraction).max(3.0));
