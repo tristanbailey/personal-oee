@@ -343,8 +343,9 @@ impl DayRecord {
     }
 }
 
-/// Snap a planned window outwards to whole 20-minute blocks from `day_start`.
-fn snap(mut w: PlannedWindow, day_start: u32) -> PlannedWindow {
+/// Snap a planned window outwards to whole 20-minute blocks from `day_start`
+/// (FR-038), the way a day counts it.
+pub fn snap(mut w: PlannedWindow, day_start: u32) -> PlannedWindow {
     let down = |t: u32| {
         if t <= day_start {
             t

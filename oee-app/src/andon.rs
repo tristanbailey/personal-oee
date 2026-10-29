@@ -1,7 +1,7 @@
 //! The andon panel: stack light, status word and toggle (D-15 to D-18).
 
 use eframe::egui::{self, Color32, Sense, Stroke, Vec2};
-use oee_core::{Mode, PlannedKind, Tracker, BLOCK_MINUTES};
+use oee_core::{Mode, PlannedKind, StopSummary, Tracker, BLOCK_MINUTES};
 
 fn hhmm(m: u32) -> String {
     format!("{:02}:{:02}", m / 60, m % 60)
@@ -96,6 +96,84 @@ pub fn lamps(mode: Option<Mode>) -> Lamps {
     }
 }
 
+/// D-18: the message shown after a stop ends.
+pub fn stop_message(stop: StopSummary) -> String {
+    let m = stop.minutes;
+    match stop.lost_blocks {
+        0 => format!("{m} min stop ignored. It counts as Work."),
+        1 => format!("{m} min stop logged as 1 lost block. Categorise it later."),
+        n => format!("{m} min stop logged as {n} lost blocks. Categorise them later."),
+    }
+}
+
+/// What pressing the big button does.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ToggleAction {
+    /// FR-011: Work → Downtime, Downtime → Work.
+    ToggleDowntime,
+    /// FR-006: push the finish time out by one block.
+    Extend,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Tone {
+    Red,
+    Green,
+    Neutral,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ToggleButton {
+    pub label: &'static str,
+    pub tone: Tone,
+    /// `None` means the button is shown but disabled.
+    pub action: Option<ToggleAction>,
+}
+
+/// D-17: the full-width button for each mode.
+pub fn toggle_button(mode: Mode) -> ToggleButton {
+    match mode {
+        Mode::Work => ToggleButton {
+            label: "Start downtime",
+            tone: Tone::Red,
+            action: Some(ToggleAction::ToggleDowntime),
+        },
+        Mode::Downtime { .. } => ToggleButton {
+            label: "Back to work",
+            tone: Tone::Green,
+            action: Some(ToggleAction::ToggleDowntime),
+        },
+        Mode::Planned { .. } => ToggleButton {
+            label: "Planned downtime",
+            tone: Tone::Neutral,
+            action: None,
+        },
+        Mode::Ended => ToggleButton {
+            label: "Extend 20 min",
+            tone: Tone::Neutral,
+            action: Some(ToggleAction::Extend),
+        },
+    }
+}
+
+/// Draw the big button across the full width. Returns the action if pressed.
+pub fn big_toggle(ui: &mut egui::Ui, spec: ToggleButton) -> Option<ToggleAction> {
+    let fill = match spec.tone {
+        Tone::Red => Color32::from_rgb(0xc2, 0x35, 0x2b),
+        Tone::Green => Color32::from_rgb(0x1d, 0x80, 0x48),
+        Tone::Neutral => Color32::from_gray(70),
+    };
+    let text = egui::RichText::new(spec.label)
+        .size(22.0)
+        .strong()
+        .color(Color32::WHITE);
+    let button = egui::Button::new(text)
+        .fill(fill)
+        .min_size(Vec2::new(ui.available_width(), 52.0));
+    let clicked = ui.add_enabled(spec.action.is_some(), button).clicked();
+    spec.action.filter(|_| clicked)
+}
+
 /// Draw the three lamps stacked vertically: red, amber, green.
 pub fn stack_light(ui: &mut egui::Ui, lit: Lamps) {
     let radius = 14.0;
@@ -115,7 +193,7 @@ pub fn stack_light(ui: &mut egui::Ui, lit: Lamps) {
             rect.top() + 4.0 + radius + i as f32 * (radius * 2.0 + gap),
         );
         let fill = if on { colour } else { colour.gamma_multiply(0.18) };
-        p.circle(centre, radius, fill, Stroke::new(1.0, Color32::from_gray(60)));
+        p.circle(centre, radius, fill, Stroke::new(1.0_f32, Color32::from_gray(60)));
     }
 }
 
@@ -167,6 +245,57 @@ mod tests {
         t.tick(hm(14, 5));
         assert_eq!(status_word(Some(&t)), "MEETING");
         assert!(sub_line(Some(&t), hm(14, 5)).starts_with("Meeting · until 14:20"));
+    }
+
+    #[test]
+    fn stop_messages() {
+        let msg = |minutes, lost_blocks| {
+            stop_message(StopSummary {
+                minutes,
+                lost_blocks,
+            })
+        };
+        assert_eq!(msg(3, 0), "3 min stop ignored. It counts as Work.");
+        assert_eq!(
+            msg(25, 1),
+            "25 min stop logged as 1 lost block. Categorise it later."
+        );
+        assert_eq!(
+            msg(45, 2),
+            "45 min stop logged as 2 lost blocks. Categorise them later."
+        );
+    }
+
+    #[test]
+    fn toggle_button_matches_each_mode() {
+        let b = toggle_button(Mode::Work);
+        assert_eq!(
+            (b.label, b.tone, b.action),
+            (
+                "Start downtime",
+                Tone::Red,
+                Some(ToggleAction::ToggleDowntime)
+            )
+        );
+        let b = toggle_button(Mode::Downtime { since: 600 });
+        assert_eq!(
+            (b.label, b.tone, b.action),
+            (
+                "Back to work",
+                Tone::Green,
+                Some(ToggleAction::ToggleDowntime)
+            )
+        );
+        let b = toggle_button(Mode::Planned {
+            kind: PlannedKind::Break,
+            until: 780,
+        });
+        assert_eq!((b.label, b.action), ("Planned downtime", None));
+        let b = toggle_button(Mode::Ended);
+        assert_eq!(
+            (b.label, b.action),
+            ("Extend 20 min", Some(ToggleAction::Extend))
+        );
     }
 
     #[test]

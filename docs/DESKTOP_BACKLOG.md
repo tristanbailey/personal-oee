@@ -27,7 +27,7 @@ Each item has an ID (D-xx), the PRD requirements it covers, and a "Done when" ch
 - [x] D-01 Fix live metrics counting future blocks as Work. `Tracker::inputs()` uses `record.blocks()`, which includes blocks that haven't happened yet. Add `DayRecord::inputs_until(&Settings, until)` in oee-core: day minutes, planned minutes and blocks all clipped to `until`. Use it for the Today screen while the day is running (FR-044, FR-048). Done when: at 10:00 on a fresh 09:00 day, Efficiency shows 3 of 20 points, not 26 of 20.
 - [x] D-02 Show running downtime in the shift log and metrics before it's toggled off. Add a provisional event `(since, now)` when building blocks while in `Mode::Downtime` (FR-013, FR-017). Done when: 25 minutes into a stop, the log shows 1 lost block and Availability has dropped.
 - [x] D-03 Show percentages to 1 decimal place to match the PRD and the Appendix A tests. Done when: Week 4 shows 58.4%, not 58%.
-- [ ] D-04 Load today's planned windows from the weekly calendar at Start day. The app currently passes `Vec::new()` (FR-030, FR-033). Done when: with a 12:00–13:00 lunch in the calendar, the app switches to Break at 12:00. Depends on D-30.
+- [x] D-04 Load today's planned windows from the weekly calendar at Start day. The app currently passes `Vec::new()` (FR-030, FR-033). Done when: with a 12:00–13:00 lunch in the calendar, the app switches to Break at 12:00. Depends on D-30.
 
 ## M1 — Today screen and saving
 
@@ -46,59 +46,59 @@ Each item has an ID (D-xx), the PRD requirements it covers, and a "Done when" ch
   - Work: "Block 7 of 26 · 12 min left".
   - Downtime: "Since 10:05 · 7 min". Under 5 minutes it adds "under 5 min is ignored" (FR-014).
   - Planned: "Lunch · until 13:00, then back to Work" (FR-037).
-- [ ] D-17 Add a full-width toggle button: "Start downtime" in red during Work, "Back to work" in green during Downtime, a disabled "Planned downtime" during Planned, and "Extend 20 min" once the day has ended (FR-011, FR-006).
-- [ ] D-18 Show a short message after a stop ends, using the result of the toggle. Done when: a 3-minute stop shows "3 min stop ignored. It counts as Work.", and a 25-minute stop shows "25 min stop logged as 1 lost block. Categorise it later." Needs `toggle_downtime` to also return the stop's length and lost-block count.
+- [x] D-17 Add a full-width toggle button: "Start downtime" in red during Work, "Back to work" in green during Downtime, a disabled "Planned downtime" during Planned, and "Extend 20 min" once the day has ended (FR-011, FR-006).
+- [x] D-18 Show a short message after a stop ends, using the result of the toggle. Done when: a 3-minute stop shows "3 min stop ignored. It counts as Work.", and a 25-minute stop shows "25 min stop logged as 1 lost block. Categorise it later." Needs `toggle_downtime` to also return the stop's length and lost-block count.
 
 ### Start screen (data entry)
 
-- [ ] D-19 Not started screen: a start-time field prefilled with the current time and editable to an earlier time (FR-005), a line listing today's planned windows or "No planned breaks or meetings for today. Add them in Calendar.", and a Start day button. Done when: entering 08:40 gives a day of 08:40–17:40 with a target of 21 (FR-047).
+- [x] D-19 Not started screen: a start-time field prefilled with the current time and editable to an earlier time (FR-005), a line listing today's planned windows or "No planned breaks or meetings for today. Add them in Calendar.", and a Start day button. Done when: entering 08:40 gives a day of 08:40–17:40 with a target of 21 (FR-047).
 
 ### Metrics tiles
 
-- [ ] D-20 Replace the sidebar with four tiles: Availability ("40 min lost of 460"), Efficiency ("14 of 20 points"), Quality ("2 rework"), and OEE in an inverted dark tile, captioned "So far today" while running and "A × E × Q" once ended (FR-040).
-- [ ] D-21 Show an Over capacity banner when Efficiency is above 100% (FR-048). Show a 0% day banner when the day has ended with time logged but no Work points (FR-045a).
+- [x] D-20 Replace the sidebar with four tiles: Availability ("40 min lost of 460"), Efficiency ("14 of 20 points"), Quality ("2 rework"), and OEE in an inverted dark tile, captioned "So far today" while running and "A × E × Q" once ended (FR-040).
+- [x] D-21 Show an Over capacity banner when Efficiency is above 100% (FR-048). Show a 0% day banner when the day has ended with time logged but no Work points (FR-045a).
 
 ### Shift log
 
-- [ ] D-22 Replace the block list with an hour grid: hour label on the left, three 20-minute blocks per row, each showing its start time and label. Colours: Work green, Lost red, Change Over amber, Planned blue. Uncategorised lost blocks are striped red with a dashed outline. Future blocks are dashed outlines. The current block has a dark outline. Purple dot for Rework, grey dot for a note. Done when: a 520-minute day shows 9 rows ending at 17:20.
-- [ ] D-23 Add a legend row above the grid, and a header with the day range and block count, e.g. "09:00–17:40 · 26 blocks". Add "+ 10 min" when the day length isn't a whole number of blocks.
-- [ ] D-24 Block labels: "Work", "Rework", the category name, "Categorise" for uncategorised, the planned window's name such as "Lunch", "Downtime…" for the current block during a stop, and "In progress" for the current block during Work.
+- [x] D-22 Replace the block list with an hour grid: hour label on the left, three 20-minute blocks per row, each showing its start time and label. Colours: Work green, Lost red, Change Over amber, Planned blue. Uncategorised lost blocks are striped red with a dashed outline. Future blocks are dashed outlines. The current block has a dark outline. Purple dot for Rework, grey dot for a note. Done when: a 520-minute day shows 9 rows ending at 17:20.
+- [x] D-23 Add a legend row above the grid, and a header with the day range and block count, e.g. "09:00–17:40 · 26 blocks". Add "+ 10 min" when the day length isn't a whole number of blocks.
+- [x] D-24 Block labels: "Work", "Rework", the category name, "Categorise" for uncategorised, the planned window's name such as "Lunch", "Downtime…" for the current block during a stop, and "In progress" for the current block during Work.
 
 ### Block editor (data entry)
 
-- [ ] D-25 Clicking a finished, planned or current block opens a modal editor titled "Lost time", "Work" or "Planned downtime", with the block's time range. Esc or Cancel closes it without saving.
+- [x] D-25 Clicking a finished, planned or current block opens a modal editor titled "Lost time", "Work" or "Planned downtime", with the block's time range. Esc or Cancel closes it without saving.
   - Lost: five buttons, one per category, each showing its name and description, with the selected one highlighted (FR-012). Change Over is highlighted amber.
   - Work: a "Mark as Rework (errors or corrections)" tick box, with the note "Rework still scores 1 Work point. It counts as half a loss in Quality." (FR-019, FR-022).
   - Planned: read-only text naming the planned window.
   - All types: a Note box (optional, max 300 characters) and Save / Cancel buttons (FR-025).
-- [ ] D-26 Saving calls `categorise`, `set_rework` and `set_note`. A blank note clears it. Any `EditError` is shown in plain words and nothing is saved. Then save the day (D-13).
+- [x] D-26 Saving calls `categorise`, `set_rework` and `set_note`. A blank note clears it. Any `EditError` is shown in plain words and nothing is saved. Then save the day (D-13).
 
 ### End of day
 
-- [ ] D-27 Add a row of controls under the grid: "Extend 20 min" always, and "End day now" until the day has ended. Ending now sets the finish time to the current time, which lowers the target (FR-047a). Needs `Tracker::end_now(now)` in oee-core. Done when: ending at 17:00 on a 09:00 day gives a target of 18.
-- [ ] D-28 Categorisation banners (FR-026):
+- [x] D-27 Add a row of controls under the grid: "Extend 20 min" always, and "End day now" until the day has ended. Ending now sets the finish time to the current time, which lowers the target (FR-047a). Needs `Tracker::end_now(now)` in oee-core. Done when: ending at 17:00 on a 09:00 day gives a target of 18.
+- [x] D-28 Categorisation banners (FR-026):
   - During Planned Downtime: "N lost blocks need a category. Click the striped blocks below."
   - At end of day: "N lost blocks need a category. Anything left becomes System Down when you finish.", with a Finish day button that calls `finalise()` (FR-027).
   - If everything is already categorised: "Day ended. Everything is categorised." with Finish day.
 
 ## M2 — Week, Calendar and past days
 
-- [ ] D-29 Add three tabs across the top: Today, Week, Calendar. Remember the last tab between launches.
+- [x] D-29 Add three tabs across the top: Today, Week, Calendar. Remember the last tab between launches.
 
 ### Calendar screen (data entry)
 
-- [ ] D-30 Save the weekly calendar to `calendar.json`, and give each entry an id so it can be removed reliably. `WeeklyCalendar::remove` currently works by index (FR-030, FR-034, FR-035).
-- [ ] D-31 List Mon–Sun as cards. Each entry shows "12:00–13:00 · Break · Lunch" with a Remove button. Empty days show "Nothing planned". Add a header note: "Repeats every week. Applies to days you start after a change."
-- [ ] D-32 For entries that aren't on the 20-minute grid from 09:00, show how they'll count, e.g. "Counts as 09:20–10:00 (40 min) on a 09:00 start" (FR-038). Needs the private `snap` function in `timeline.rs` made public.
-- [ ] D-33 Add-entry form with these fields: Day (Mon–Sun, or "Mon–Fri" to add five entries), From, To, Type (Meeting or Break), Name (optional, max 40 characters), and an Add button. Done when: an end time not after the start shows "The end time must be after the start time." and nothing is added.
+- [x] D-30 Save the weekly calendar to `calendar.json`, and give each entry an id so it can be removed reliably. `WeeklyCalendar::remove` currently works by index (FR-030, FR-034, FR-035).
+- [x] D-31 List Mon–Sun as cards. Each entry shows "12:00–13:00 · Break · Lunch" with a Remove button. Empty days show "Nothing planned". Add a header note: "Repeats every week. Applies to days you start after a change."
+- [x] D-32 For entries that aren't on the 20-minute grid from 09:00, show how they'll count, e.g. "Counts as 09:20–10:00 (40 min) on a 09:00 start" (FR-038). Needs the private `snap` function in `timeline.rs` made public.
+- [x] D-33 Add-entry form with these fields: Day (Mon–Sun, or "Mon–Fri" to add five entries), From, To, Type (Meeting or Break), Name (optional, max 40 characters), and an Add button. Done when: an end time not after the start shows "The end time must be after the start time." and nothing is added.
 
 ### Week screen
 
-- [ ] D-34 Add week navigation: ‹ and › buttons around a title like "19 Oct – 25 Oct", with a sub-line "Pooled from N working days, holidays left out" or "No working days this week" (FR-051, FR-052).
-- [ ] D-35 Show four pooled tiles for the week using `week_report`, with the OEE tile captioned "Week, pooled" (FR-041, FR-053).
-- [ ] D-36 Add a day table with columns Day, Status, Avail., Effic., Quality, OEE and Points ("18/20"), plus a bold Week total row. Status pills: Worked (green), Over capacity (blue), 0% day (red), Holiday (grey). Show Mon–Fri always, and Sat and Sun only when they have a record. Clicking a row opens that day (D-39).
-- [ ] D-37 Add a loss breakdown: one horizontal bar per category (Change Over in amber) scaled to the largest, with minutes on the right, plus a Rework bar showing the block count (FR-042).
-- [ ] D-38 Add an over-capacity review list of every flagged day across all saved records, newest first, with columns Day, Points, Efficiency and "Review →". Clicking opens that day. If there are none, show "No over-capacity days yet." (FR-043).
+- [x] D-34 Add week navigation: ‹ and › buttons around a title like "19 Oct – 25 Oct", with a sub-line "Pooled from N working days, holidays left out" or "No working days this week" (FR-051, FR-052).
+- [x] D-35 Show four pooled tiles for the week using `week_report`, with the OEE tile captioned "Week, pooled" (FR-041, FR-053).
+- [x] D-36 Add a day table with columns Day, Status, Avail., Effic., Quality, OEE and Points ("18/20"), plus a bold Week total row. Status pills: Worked (green), Over capacity (blue), 0% day (red), Holiday (grey). Show Mon–Fri always, and Sat and Sun only when they have a record. Clicking a row opens that day (D-39).
+- [x] D-37 Add a loss breakdown: one horizontal bar per category (Change Over in amber) scaled to the largest, with minutes on the right, plus a Rework bar showing the block count (FR-042).
+- [x] D-38 Add an over-capacity review list of every flagged day across all saved records, newest first, with columns Day, Points, Efficiency and "Review →". Clicking opens that day. If there are none, show "No over-capacity days yet." (FR-043).
 
 ### Past day view
 

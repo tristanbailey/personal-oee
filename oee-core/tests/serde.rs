@@ -43,3 +43,46 @@ fn calendar_and_settings_round_trip() {
     let s = Settings::default();
     assert_eq!(round_trip(&s), s);
 }
+
+// D-30: entries have ids, and removal is by id.
+
+fn lunch() -> PlannedWindow {
+    PlannedWindow::new(hm(12, 0), hm(13, 0), PlannedKind::Break, "Lunch")
+}
+
+fn standup() -> PlannedWindow {
+    PlannedWindow::new(hm(9, 30), hm(9, 50), PlannedKind::Meeting, "Standup")
+}
+
+#[test]
+fn removing_by_id_removes_the_right_entry() {
+    let mut c = WeeklyCalendar::default();
+    let a = c.add(Weekday::Mon, lunch());
+    let b = c.add(Weekday::Mon, standup());
+    assert_ne!(a, b);
+    // Sorted by time, standup is first, but removal doesn't care about order.
+    assert_eq!(c.entries_for(Weekday::Mon)[0].id, b);
+    let removed = c.remove(a).unwrap();
+    assert_eq!(removed.window.label, "Lunch");
+    assert_eq!(c.windows_for(Weekday::Mon), vec![standup()]);
+    assert!(c.remove(a).is_none());
+}
+
+#[test]
+fn ids_are_not_reused_after_a_removal_or_a_reload() {
+    let mut c = WeeklyCalendar::default();
+    let a = c.add(Weekday::Tue, lunch());
+    c.remove(a);
+    let mut back = round_trip(&c);
+    let b = back.add(Weekday::Tue, lunch());
+    assert_ne!(a, b);
+}
+
+#[test]
+fn ids_survive_a_round_trip() {
+    let mut c = WeeklyCalendar::default();
+    let a = c.add(Weekday::Fri, lunch());
+    let mut back = round_trip(&c);
+    assert_eq!(back, c);
+    assert!(back.remove(a).is_some());
+}

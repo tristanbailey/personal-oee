@@ -23,10 +23,10 @@ pub mod timeline;
 pub mod tracker;
 pub mod week;
 
-pub use calendar::{PlannedWindow, Weekday, WeeklyCalendar};
+pub use calendar::{CalendarEntry, EntryId, PlannedWindow, Weekday, WeeklyCalendar};
 pub use category::{LossMinutes, LostCategory, PlannedKind};
 pub use metrics::{day_result, DayInputs, DayResult, DayStatus, Metrics};
 pub use rules::{hm, lost_blocks, Settings, BLOCK_MINUTES};
 pub use timeline::{Block, BlockKind, DayRecord, DowntimeEvent, EditError};
-pub use tracker::{Mode, Notice, Tracker};
+pub use tracker::{Mode, Notice, StopSummary, Toggled, Tracker};
 pub use week::{over_capacity_days, week_report, WeekReport};

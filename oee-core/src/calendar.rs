@@ -40,37 +40,51 @@ impl PlannedWindow {
     }
 }
 
+/// Identifies one calendar entry. Ids are never reused, so removing by id
+/// stays correct however the list is sorted or filtered.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
+pub struct EntryId(pub u32);
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CalendarEntry {
+    pub id: EntryId,
+    pub day: Weekday,
+    pub window: PlannedWindow,
+}
+
 /// Entries are entered by hand (FR-035) and repeat every week (FR-034).
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct WeeklyCalendar {
-    entries: Vec<(Weekday, PlannedWindow)>,
+    entries: Vec<CalendarEntry>,
+    next_id: u32,
 }
 
 impl WeeklyCalendar {
-    pub fn add(&mut self, day: Weekday, window: PlannedWindow) {
-        self.entries.push((day, window));
+    pub fn add(&mut self, day: Weekday, window: PlannedWindow) -> EntryId {
+        let id = EntryId(self.next_id);
+        self.next_id += 1;
+        self.entries.push(CalendarEntry { id, day, window });
+        id
     }
 
-    pub fn remove(&mut self, day: Weekday, index: usize) -> Option<PlannedWindow> {
-        let pos = self
-            .entries
-            .iter()
-            .enumerate()
-            .filter(|(_, (d, _))| *d == day)
-            .nth(index)
-            .map(|(i, _)| i)?;
-        Some(self.entries.remove(pos).1)
+    /// Remove an entry by id. `None` if there is no such entry.
+    pub fn remove(&mut self, id: EntryId) -> Option<CalendarEntry> {
+        let pos = self.entries.iter().position(|e| e.id == id)?;
+        Some(self.entries.remove(pos))
+    }
+
+    /// The entries for a weekday, sorted by start time.
+    pub fn entries_for(&self, day: Weekday) -> Vec<&CalendarEntry> {
+        let mut v: Vec<_> = self.entries.iter().filter(|e| e.day == day).collect();
+        v.sort_by_key(|e| (e.window.start, e.id));
+        v
     }
 
     /// The planned windows for a weekday, sorted by start time.
     pub fn windows_for(&self, day: Weekday) -> Vec<PlannedWindow> {
-        let mut w: Vec<_> = self
-            .entries
-            .iter()
-            .filter(|(d, _)| *d == day)
-            .map(|(_, w)| w.clone())
-            .collect();
-        w.sort_by_key(|w| w.start);
-        w
+        self.entries_for(day)
+            .into_iter()
+            .map(|e| e.window.clone())
+            .collect()
     }
 }

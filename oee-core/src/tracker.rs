@@ -27,6 +27,22 @@ pub enum Mode {
     Ended,
 }
 
+/// A stop that has just ended (D-18).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct StopSummary {
+    pub minutes: u32,
+    /// FR-013, FR-014: 0 when the stop is short enough to be ignored.
+    pub lost_blocks: u32,
+}
+
+/// The result of pressing the downtime toggle.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Toggled {
+    pub mode: Mode,
+    /// Set only when this press ended a stop.
+    pub stopped: Option<StopSummary>,
+}
+
 /// Things the app should show the user.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Notice {
@@ -94,17 +110,31 @@ impl Tracker {
     /// FR-011: the shortcut. Work → Downtime, Downtime → Work.
     /// Ignored during Planned Downtime and after the day has ended.
     pub fn toggle_downtime(&mut self, now: u32) -> Mode {
+        self.toggle_downtime_report(now).mode
+    }
+
+    /// Like [`Tracker::toggle_downtime`], also reporting the stop that ended.
+    pub fn toggle_downtime_report(&mut self, now: u32) -> Toggled {
         self.tick(now);
+        let mut stopped = None;
         self.mode = match self.mode {
             Mode::Work => Mode::Downtime { since: now },
             Mode::Downtime { since } => {
                 self.record.add_downtime(since, now);
+                let minutes = now.saturating_sub(since);
+                stopped = Some(StopSummary {
+                    minutes,
+                    lost_blocks: crate::rules::lost_blocks(minutes),
+                });
                 Mode::Work
             }
             other => other,
         };
         self.sync();
-        self.mode
+        Toggled {
+            mode: self.mode,
+            stopped,
+        }
     }
 
     /// Advance the clock. Returns notices for the app to show.
@@ -177,6 +207,22 @@ impl Tracker {
         self.mode = Mode::Ended;
         let mut notices = vec![Notice::DayEnded];
         notices.extend(self.reminder());
+        notices
+    }
+
+    /// D-27: end the day at `now`, which lowers the target (FR-047a). A running
+    /// stop is closed there. The day keeps at least one block. Does nothing if
+    /// the day has already ended.
+    pub fn end_now(&mut self, now: u32) -> Vec<Notice> {
+        let mut notices = self.tick(now);
+        if self.mode == Mode::Ended {
+            return notices;
+        }
+        self.record.end = now
+            .max(self.record.start + crate::rules::BLOCK_MINUTES)
+            .min(self.record.end);
+        notices.extend(self.end_day());
+        self.sync();
         notices
     }
 

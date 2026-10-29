@@ -437,3 +437,105 @@ fn resume_inside_a_planned_window() {
     let t2 = Tracker::resume(saved(&t), Settings::default(), hm(12, 10));
     assert!(matches!(t2.mode(), Mode::Planned { until, .. } if until == hm(13, 0)));
 }
+
+// D-18: the toggle reports the stop it just ended.
+
+#[test]
+fn toggle_report_describes_a_finished_stop() {
+    let mut t = Tracker::start_day(hm(9, 0), vec![], Settings::default());
+    let start = t.toggle_downtime_report(hm(10, 5));
+    assert_eq!(start.mode, Mode::Downtime { since: hm(10, 5) });
+    assert_eq!(start.stopped, None);
+
+    let short = t.toggle_downtime_report(hm(10, 8));
+    assert_eq!(short.mode, Mode::Work);
+    assert_eq!(
+        short.stopped,
+        Some(StopSummary {
+            minutes: 3,
+            lost_blocks: 0
+        })
+    );
+
+    t.toggle_downtime_report(hm(11, 0));
+    let long = t.toggle_downtime_report(hm(11, 25));
+    assert_eq!(
+        long.stopped,
+        Some(StopSummary {
+            minutes: 25,
+            lost_blocks: 1
+        })
+    );
+    // 45 minutes is two blocks (FR-013, FR-014).
+    t.toggle_downtime_report(hm(13, 0));
+    let r = t.toggle_downtime_report(hm(13, 45));
+    assert_eq!(r.stopped.unwrap().lost_blocks, 2);
+}
+
+#[test]
+fn toggle_report_has_no_stop_when_ignored_or_closed_by_planned_downtime() {
+    let mut t = Tracker::start_day(hm(9, 0), vec![lunch()], Settings::default());
+    t.toggle_downtime_report(hm(11, 50));
+    // Lunch already ended that stop, so there is nothing to report now.
+    let r = t.toggle_downtime_report(hm(12, 30));
+    assert_eq!(r.stopped, None);
+    assert!(matches!(r.mode, Mode::Planned { .. }));
+}
+
+// D-27: end the day now.
+
+#[test]
+fn ending_at_17_00_gives_a_target_of_18() {
+    let mut t = Tracker::start_day(hm(9, 0), vec![], Settings::default());
+    let notices = t.end_now(hm(17, 0));
+    assert_eq!(t.mode(), Mode::Ended);
+    assert_eq!(t.record.end, hm(17, 0));
+    assert!(notices.contains(&Notice::DayEnded));
+    let i = t.inputs();
+    assert_eq!((i.target_points, i.day_minutes, i.work_points), (18, 480, 24));
+}
+
+#[test]
+fn ending_during_a_stop_closes_it_at_that_time() {
+    let mut t = Tracker::start_day(hm(9, 0), vec![], Settings::default());
+    t.toggle_downtime(hm(16, 20));
+    t.end_now(hm(17, 0));
+    assert_eq!(
+        t.record.downtime,
+        vec![DowntimeEvent {
+            start: hm(16, 20),
+            end: hm(17, 0)
+        }]
+    );
+    assert_eq!(t.record.down_since, None);
+    // 40 minutes is two lost blocks; uncategorised counts as System Down (FR-027).
+    assert_eq!(t.record.uncategorised().len(), 2);
+    assert_eq!(t.inputs().losses.get(LostCategory::SystemDown), 40);
+}
+
+#[test]
+fn ending_does_nothing_if_the_day_already_ended() {
+    let mut t = Tracker::start_day(hm(9, 0), vec![], Settings::default());
+    t.tick(hm(17, 40));
+    let before = t.record.clone();
+    assert!(t.end_now(hm(18, 30)).is_empty());
+    assert_eq!(t.record, before);
+}
+
+#[test]
+fn ending_within_the_first_block_keeps_one_block() {
+    let mut t = Tracker::start_day(hm(9, 0), vec![], Settings::default());
+    t.end_now(hm(9, 10));
+    assert_eq!(t.mode(), Mode::Ended);
+    assert_eq!(t.record.end, hm(9, 20));
+    assert_eq!(t.record.slot_count(), 1);
+}
+
+#[test]
+fn a_day_ended_early_can_be_extended_again() {
+    let mut t = Tracker::start_day(hm(9, 0), vec![], Settings::default());
+    t.end_now(hm(17, 0));
+    t.extend_to(hm(17, 20), hm(17, 5));
+    assert_eq!(t.mode(), Mode::Work);
+    assert_eq!(t.record.end, hm(17, 20));
+}

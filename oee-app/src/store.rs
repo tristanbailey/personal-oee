@@ -10,6 +10,8 @@ use std::path::{Path, PathBuf};
 
 use chrono::NaiveDate;
 use oee_core::{DayRecord, WeeklyCalendar};
+
+use crate::tabs::UiState;
 use serde::{de::DeserializeOwned, Serialize};
 
 pub struct Store {
@@ -45,6 +47,25 @@ impl Store {
         read_json(&self.day_path(date))
     }
 
+    /// The seven days from `monday`, each with its record if one is saved.
+    /// An unreadable file counts as no record.
+    pub fn load_week(&self, monday: NaiveDate) -> Vec<(NaiveDate, Option<DayRecord>)> {
+        (0..7)
+            .map(|i| {
+                let date = monday + chrono::Duration::days(i);
+                (date, self.load_day(date).ok().flatten())
+            })
+            .collect()
+    }
+
+    /// Every saved day with its record, oldest first. Unreadable files are skipped.
+    pub fn load_all(&self) -> Vec<(NaiveDate, DayRecord)> {
+        self.list_days()
+            .into_iter()
+            .filter_map(|d| Some((d, self.load_day(d).ok().flatten()?)))
+            .collect()
+    }
+
     /// Every saved day, oldest first. Unreadable files are skipped.
     pub fn list_days(&self) -> Vec<NaiveDate> {
         let Ok(dir) = fs::read_dir(self.root.join("days")) else {
@@ -59,6 +80,18 @@ impl Store {
             .collect();
         dates.sort();
         dates
+    }
+
+    /// Last-open tab etc. A missing or unreadable file gives the defaults.
+    pub fn load_ui(&self) -> UiState {
+        read_json(&self.root.join("ui.json"))
+            .ok()
+            .flatten()
+            .unwrap_or_default()
+    }
+
+    pub fn save_ui(&self, ui: &UiState) -> io::Result<()> {
+        write_json(&self.root.join("ui.json"), ui)
     }
 
     pub fn save_calendar(&self, calendar: &WeeklyCalendar) -> io::Result<()> {
@@ -157,6 +190,48 @@ mod tests {
         s.save_day(date(29), &r).unwrap();
         s.save_day(date(20), &r).unwrap();
         assert_eq!(s.list_days(), vec![date(20), date(29)]);
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn load_week_returns_seven_days_with_records_where_saved() {
+        let (s, dir) = temp_store("week");
+        let r = DayRecord::new(hm(9, 0), hm(17, 40), vec![]);
+        s.save_day(date(26), &r).unwrap();
+        s.save_day(date(28), &r).unwrap();
+        s.save_day(date(19), &r).unwrap(); // the week before
+        let week = s.load_week(date(26));
+        assert_eq!(week.len(), 7);
+        assert_eq!(week[0].0, date(26));
+        assert_eq!(week[6].0, NaiveDate::from_ymd_opt(2026, 11, 1).unwrap());
+        let saved: Vec<_> = week.iter().filter(|(_, r)| r.is_some()).map(|(d, _)| *d).collect();
+        assert_eq!(saved, vec![date(26), date(28)]);
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn load_all_returns_every_readable_day_oldest_first() {
+        let (s, dir) = temp_store("all");
+        let r = DayRecord::new(hm(9, 0), hm(17, 40), vec![]);
+        s.save_day(date(29), &r).unwrap();
+        s.save_day(date(5), &r).unwrap();
+        fs::write(dir.join("days/2026-10-12.json"), b"garbage").unwrap();
+        let all: Vec<_> = s.load_all().into_iter().map(|(d, _)| d).collect();
+        assert_eq!(all, vec![date(5), date(29)]);
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn ui_state_round_trips_and_defaults_to_today() {
+        use crate::tabs::Tab;
+        let (s, dir) = temp_store("ui");
+        assert_eq!(s.load_ui().tab, Tab::Today);
+        s.save_ui(&UiState { tab: Tab::Week }).unwrap();
+        assert_eq!(s.load_ui().tab, Tab::Week);
+        fs::write(dir.join("ui.json"), b"garbage").unwrap();
+        assert_eq!(s.load_ui().tab, Tab::Today);
+        fs::write(dir.join("ui.json"), b"{}").unwrap();
+        assert_eq!(s.load_ui().tab, Tab::Today);
         let _ = fs::remove_dir_all(dir);
     }
 
