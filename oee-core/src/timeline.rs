@@ -118,11 +118,17 @@ impl DayRecord {
 
     /// FR-032: planned minutes inside the day, overlaps merged.
     pub fn planned_minutes(&self) -> u32 {
+        self.planned_minutes_until(self.end)
+    }
+
+    /// Planned minutes that have happened by `until`.
+    fn planned_minutes_until(&self, until: u32) -> u32 {
+        let end = self.end.min(until);
         let mut total = 0;
         let mut covered_to = self.start;
         for w in &self.planned {
             let s = w.start.max(covered_to).max(self.start);
-            let e = w.end.min(self.end);
+            let e = w.end.min(end);
             if e > s {
                 total += e - s;
                 covered_to = e;
@@ -291,10 +297,17 @@ impl DayRecord {
 
     /// Totals for the OEE maths.
     pub fn inputs(&self, settings: &Settings) -> DayInputs {
+        self.inputs_until(settings, self.end)
+    }
+
+    /// Totals for a day still in progress (FR-044, FR-048): day minutes, planned
+    /// minutes and blocks are clipped to `until`. The target stays the full
+    /// day's target, so Efficiency reads as progress towards it.
+    pub fn inputs_until(&self, settings: &Settings, until: u32) -> DayInputs {
         let mut losses = LossMinutes::default();
         let mut work_points = 0;
         let mut rework_points = 0;
-        for b in self.blocks() {
+        for b in self.blocks_until(until) {
             match b.kind {
                 BlockKind::Work { rework } => {
                     work_points += 1;
@@ -308,8 +321,8 @@ impl DayRecord {
             }
         }
         DayInputs {
-            day_minutes: self.end - self.start,
-            planned_minutes: self.planned_minutes(),
+            day_minutes: self.end.min(until).saturating_sub(self.start),
+            planned_minutes: self.planned_minutes_until(until),
             losses,
             work_points,
             rework_points,

@@ -277,3 +277,79 @@ fn downtime_running_at_end_of_day_is_closed() {
     );
     assert_eq!(t.inputs().work_points, 24);
 }
+
+// D-01: live figures only count what has already happened.
+
+#[test]
+fn inputs_until_ignores_future_blocks() {
+    let r = day();
+    let i = r.inputs_until(&Settings::default(), hm(10, 0));
+    assert_eq!(
+        (i.day_minutes, i.work_points, i.target_points),
+        (60, 3, 20)
+    );
+}
+
+#[test]
+fn inputs_until_end_matches_inputs() {
+    let mut r = DayRecord::new(hm(9, 0), hm(17, 40), vec![lunch()]);
+    r.add_downtime(hm(10, 0), hm(10, 25));
+    let s = Settings::default();
+    assert_eq!(r.inputs_until(&s, hm(17, 40)), r.inputs(&s));
+    assert_eq!(r.inputs_until(&s, hm(23, 0)), r.inputs(&s));
+}
+
+#[test]
+fn inputs_until_clips_planned_minutes() {
+    let r = DayRecord::new(hm(9, 0), hm(17, 40), vec![lunch()]);
+    let s = Settings::default();
+    assert_eq!(r.inputs_until(&s, hm(12, 20)).planned_minutes, 20);
+    assert_eq!(r.inputs_until(&s, hm(11, 0)).planned_minutes, 0);
+}
+
+#[test]
+fn metrics_at_ten_on_a_fresh_day_are_not_inflated() {
+    let r = day();
+    let m = Metrics::from_inputs(&r.inputs_until(&Settings::default(), hm(10, 0)));
+    assert!((m.efficiency - 0.15).abs() < 1e-9);
+    assert!(!m.over_capacity);
+}
+
+// D-02: a running stop shows up before it is toggled off.
+
+#[test]
+fn live_record_shows_running_downtime() {
+    let mut t = Tracker::start_day(hm(9, 0), vec![], Settings::default());
+    t.toggle_downtime(hm(10, 5));
+    let now = hm(10, 30);
+    let live = t.live_record(now);
+    let lost = live
+        .blocks_until(now)
+        .iter()
+        .filter(|b| matches!(b.kind, BlockKind::Lost { .. }))
+        .count();
+    assert_eq!(lost, 1);
+    // The real record is untouched until the stop ends.
+    assert!(t.record.downtime.is_empty());
+
+    let before = Metrics::from_inputs(&t.record.inputs_until(&t.settings, now));
+    let after = Metrics::from_inputs(&t.inputs_at(now));
+    assert!(after.availability < before.availability);
+}
+
+#[test]
+fn live_record_ignores_stop_of_five_minutes_or_less() {
+    let mut t = Tracker::start_day(hm(9, 0), vec![], Settings::default());
+    t.toggle_downtime(hm(10, 5));
+    let live = t.live_record(hm(10, 10));
+    assert!(live
+        .blocks()
+        .iter()
+        .all(|b| matches!(b.kind, BlockKind::Work { .. })));
+}
+
+#[test]
+fn live_record_without_a_stop_is_the_record() {
+    let t = Tracker::start_day(hm(9, 0), vec![], Settings::default());
+    assert_eq!(t.live_record(hm(10, 0)), t.record);
+}

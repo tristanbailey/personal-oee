@@ -1,0 +1,909 @@
+<title>Personal OEE</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: one narrow shop-floor column. Andon panel with stack light, then the shift log as hour rows of three 20-minute blocks. */
+:root {
+  --bg: #eef0ef;
+  --surface: #ffffff;
+  --sunk: #e3e6e4;
+  --ink: #15191a;
+  --muted: #5b6466;
+  --line: #d3d8d6;
+  --accent: #d9a400;
+  --accent-ink: #1a1500;
+  --work: #1d8048;
+  --work-soft: #dcefe3;
+  --down: #c2352b;
+  --down-soft: #f7dfdc;
+  --plan: #44689c;
+  --plan-soft: #dfe7f2;
+  --change: #c47f00;
+  --change-soft: #f6ead2;
+  --rework: #7a4cae;
+  --off: #c6ccca;
+  --f-display: "Barlow Condensed", "Arial Narrow", sans-serif;
+  --f-body: "Barlow", "Helvetica Neue", Arial, sans-serif;
+  --f-data: "JetBrains Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #111415; --surface: #1a1e1f; --sunk: #232829; --ink: #e6ebe9; --muted: #96a1a2; --line: #2e3536;
+    --accent: #f0c22e; --accent-ink: #1a1500;
+    --work: #46b874; --work-soft: #183a26; --down: #ef5b50; --down-soft: #4a1f1c;
+    --plan: #84a6dc; --plan-soft: #1e2b3e; --change: #f0a62a; --change-soft: #3e2e10;
+    --rework: #b08ae6; --off: #3a4243; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #111415; --surface: #1a1e1f; --sunk: #232829; --ink: #e6ebe9; --muted: #96a1a2; --line: #2e3536;
+  --accent: #f0c22e; --accent-ink: #1a1500;
+  --work: #46b874; --work-soft: #183a26; --down: #ef5b50; --down-soft: #4a1f1c;
+  --plan: #84a6dc; --plan-soft: #1e2b3e; --change: #f0a62a; --change-soft: #3e2e10;
+  --rework: #b08ae6; --off: #3a4243; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font-family: var(--f-body); font-size: 15px; line-height: 1.45; }
+.wrap { max-width: 760px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 14px 56px; display: flex; flex-direction: column; gap: 16px; }
+button, input, select, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.num { font-family: var(--f-data); font-variant-numeric: tabular-nums; }
+h1, h2, h3 { font-family: var(--f-display); font-weight: 600; margin: 0; text-wrap: balance; letter-spacing: .01em; }
+h2 { font-size: 22px; }
+h3 { font-size: 17px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+.muted { color: var(--muted); }
+.small { font-size: 13px; }
+
+/* Header */
+.top { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.brand { display: flex; align-items: baseline; gap: 10px; }
+.brand h1 { font-size: 28px; text-transform: uppercase; letter-spacing: .05em; }
+.brand span { font-family: var(--f-data); font-size: 12px; color: var(--muted); }
+.seg { display: inline-flex; background: var(--sunk); border-radius: 8px; padding: 3px; gap: 2px; }
+.seg button { border: 0; background: transparent; padding: 6px 12px; border-radius: 6px; font-weight: 600; font-size: 14px; color: var(--muted); }
+.seg button[aria-pressed="true"] { background: var(--surface); color: var(--ink); box-shadow: 0 1px 2px rgb(0 0 0 / .12); }
+.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); }
+.tabs button { border: 0; background: none; padding: 10px 14px; font-family: var(--f-display); font-size: 18px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); border-bottom: 3px solid transparent; margin-bottom: -1px; }
+.tabs button[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--accent); }
+.practice-note { background: var(--change-soft); color: var(--ink); border-radius: 8px; padding: 8px 12px; font-size: 13px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; justify-content: space-between; }
+
+/* Andon panel */
+.andon { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 18px; display: grid; grid-template-columns: auto 1fr; gap: 18px; align-items: center; }
+.stack { display: flex; flex-direction: column; gap: 6px; padding: 8px; background: var(--sunk); border-radius: 22px; }
+.lamp { width: 26px; height: 26px; border-radius: 50%; background: var(--off); transition: background .2s, box-shadow .2s; }
+.lamp.on.red { background: var(--down); box-shadow: 0 0 14px var(--down); }
+.lamp.on.amber { background: var(--change); box-shadow: 0 0 14px var(--change); }
+.lamp.on.green { background: var(--work); box-shadow: 0 0 14px var(--work); }
+.state { min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.state .label { font-family: var(--f-display); font-weight: 700; font-size: 46px; line-height: 1; text-transform: uppercase; letter-spacing: .03em; }
+.state .label.work { color: var(--work); } .state .label.down { color: var(--down); } .state .label.plan { color: var(--plan); }
+.state .sub { color: var(--muted); }
+.clockrow { display: flex; gap: 14px; flex-wrap: wrap; align-items: baseline; }
+.clock { font-family: var(--f-data); font-size: 22px; font-weight: 600; }
+.bigbtn { grid-column: 1 / -1; border: 0; border-radius: 10px; padding: 16px; font-family: var(--f-display); font-size: 24px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; display: flex; justify-content: center; align-items: center; gap: 10px; }
+.bigbtn.go-down { background: var(--down); color: #fff; }
+.bigbtn.go-work { background: var(--work); color: #fff; }
+.bigbtn.start { background: var(--accent); color: var(--accent-ink); }
+.bigbtn:disabled { background: var(--sunk); color: var(--muted); cursor: default; }
+kbd { font-family: var(--f-data); font-size: 13px; border: 1px solid currentColor; border-radius: 4px; padding: 0 5px; opacity: .8; }
+.simclock { grid-column: 1 / -1; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; border-top: 1px dashed var(--line); padding-top: 12px; font-size: 13px; }
+.chipbtn { border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 4px 11px; font-size: 13px; font-weight: 600; }
+.chipbtn:hover { border-color: var(--muted); }
+.startform { grid-column: 1 / -1; display: flex; flex-direction: column; gap: 12px; }
+.field { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--muted); }
+.field input, .field select, .field textarea { background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; color: var(--ink); font-size: 15px; }
+
+/* Metrics */
+.tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+.tile { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 12px; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.tile .k { font-size: 12px; text-transform: uppercase; letter-spacing: .07em; color: var(--muted); font-weight: 600; }
+.tile .v { font-family: var(--f-data); font-size: 24px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.tile .d { font-size: 12px; color: var(--muted); }
+.tile.oee { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+.tile.oee .k, .tile.oee .d { color: var(--bg); opacity: .75; }
+@media (max-width: 560px) { .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); } .state .label { font-size: 38px; } }
+
+.banner { border-radius: 10px; padding: 12px 14px; display: flex; gap: 10px; align-items: center; justify-content: space-between; flex-wrap: wrap; }
+.banner.warn { background: var(--change-soft); }
+.banner.over { background: var(--plan-soft); }
+.banner b { font-weight: 600; }
+.btn { border: 1px solid var(--line); background: var(--surface); border-radius: 8px; padding: 8px 14px; font-weight: 600; }
+.btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.btn.danger { color: var(--down); }
+.row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.pill { display: inline-flex; align-items: center; gap: 5px; border-radius: 999px; padding: 2px 9px; font-size: 12px; font-weight: 600; white-space: nowrap; }
+.pill.holiday { background: var(--sunk); color: var(--muted); }
+.pill.zero { background: var(--down-soft); color: var(--down); }
+.pill.over { background: var(--plan-soft); color: var(--plan); }
+.pill.ok { background: var(--work-soft); color: var(--work); }
+.pill.live { background: var(--down-soft); color: var(--down); }
+
+/* Shift log */
+.section { display: flex; flex-direction: column; gap: 10px; }
+.sechead { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.log { display: flex; flex-direction: column; gap: 6px; }
+.hour { display: grid; grid-template-columns: 52px repeat(3, minmax(0, 1fr)); gap: 6px; align-items: stretch; }
+.hour .h { font-family: var(--f-data); font-size: 13px; color: var(--muted); padding-top: 8px; }
+.blk { border: 0; border-radius: 8px; padding: 7px 8px; min-height: 54px; text-align: left; display: flex; flex-direction: column; justify-content: space-between; gap: 2px; min-width: 0; position: relative; background: var(--sunk); color: var(--ink); }
+.blk .t { font-family: var(--f-data); font-size: 11px; opacity: .75; }
+.blk .n { font-weight: 600; font-size: 13px; line-height: 1.2; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.blk.work { background: var(--work-soft); }
+.blk.work .n { color: var(--work); }
+.blk.lost { background: var(--down-soft); }
+.blk.lost .n { color: var(--down); }
+.blk.lost.co { background: var(--change-soft); }
+.blk.lost.co .n { color: var(--change); }
+.blk.lost.uncat { background: repeating-linear-gradient(135deg, var(--down-soft) 0 8px, var(--surface) 8px 16px); outline: 1px dashed var(--down); outline-offset: -1px; }
+.blk.plan { background: var(--plan-soft); }
+.blk.plan .n { color: var(--plan); }
+.blk.future { background: transparent; border: 1px dashed var(--line); }
+.blk.future .n { color: var(--muted); font-weight: 500; }
+.blk.future.plan { background: transparent; }
+.blk.now { outline: 2px solid var(--ink); outline-offset: 1px; }
+.blk .marks { position: absolute; top: 6px; right: 7px; display: flex; gap: 3px; }
+.mark { width: 8px; height: 8px; border-radius: 50%; }
+.mark.rw { background: var(--rework); }
+.mark.note { background: var(--muted); }
+.blk:disabled { cursor: default; }
+.legend { display: flex; gap: 12px; flex-wrap: wrap; font-size: 12px; color: var(--muted); }
+.legend span { display: inline-flex; align-items: center; gap: 5px; }
+.sw { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+
+/* Tables and bars */
+.tablewrap { overflow-x: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; }
+table { width: 100%; border-collapse: collapse; font-size: 14px; }
+th, td { padding: 9px 10px; text-align: right; white-space: nowrap; }
+th:first-child, td:first-child { text-align: left; }
+th { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-weight: 600; border-bottom: 1px solid var(--line); }
+tbody tr { border-top: 1px solid var(--line); }
+tbody tr:first-child { border-top: 0; }
+tbody tr.click { cursor: pointer; }
+tbody tr.click:hover { background: var(--sunk); }
+tr.dim td { color: var(--muted); }
+tfoot td { border-top: 2px solid var(--ink); font-weight: 600; }
+.bars { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px; display: flex; flex-direction: column; gap: 10px; }
+.bar { display: grid; grid-template-columns: 110px minmax(0, 1fr) 64px; gap: 10px; align-items: center; font-size: 14px; }
+.bar .track { height: 14px; background: var(--sunk); border-radius: 4px; overflow: hidden; }
+.bar .fill { height: 100%; background: var(--down); border-radius: 4px; }
+.bar .fill.co { background: var(--change); }
+.bar .fill.rw { background: var(--rework); }
+.bar .val { text-align: right; }
+.weeknav { display: flex; align-items: center; gap: 10px; }
+.weeknav button { width: 36px; height: 36px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); font-size: 18px; }
+
+/* Calendar */
+.cal { display: flex; flex-direction: column; gap: 8px; }
+.calday { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; display: grid; grid-template-columns: 48px minmax(0, 1fr); gap: 10px; }
+.calday .wd { font-family: var(--f-display); font-weight: 700; font-size: 18px; text-transform: uppercase; padding-top: 2px; }
+.calday ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.calday li { display: flex; gap: 10px; align-items: center; justify-content: space-between; flex-wrap: wrap; }
+.calday .empty { color: var(--muted); font-size: 14px; padding-top: 3px; }
+.addform { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px; display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; align-items: end; }
+.addform .wide { grid-column: span 2; }
+@media (max-width: 420px) { .addform .wide { grid-column: 1 / -1; } }
+
+/* Sheet */
+.scrim { position: fixed; inset: 0; background: rgb(0 0 0 / .45); z-index: 20; display: flex; align-items: flex-end; justify-content: center; }
+.sheet { background: var(--surface); width: 100%; max-width: 560px; max-height: 88vh; overflow-y: auto; border-radius: 16px 16px 0 0; padding: 18px max(18px, env(safe-area-inset-right, 0px)) calc(18px + env(safe-area-inset-bottom, 0px)) max(18px, env(safe-area-inset-left, 0px)); display: flex; flex-direction: column; gap: 14px; }
+@media (min-width: 640px) { .scrim { align-items: center; } .sheet { border-radius: 16px; } }
+.cats { display: flex; flex-direction: column; gap: 6px; }
+.cat { border: 1px solid var(--line); background: var(--bg); border-radius: 10px; padding: 10px 12px; text-align: left; display: flex; flex-direction: column; gap: 2px; }
+.cat b { font-weight: 600; }
+.cat span { font-size: 13px; color: var(--muted); }
+.cat[aria-pressed="true"] { border-color: var(--down); background: var(--down-soft); }
+.cat.co[aria-pressed="true"] { border-color: var(--change); background: var(--change-soft); }
+.check { display: flex; gap: 10px; align-items: center; font-weight: 600; }
+.check input { width: 20px; height: 20px; accent-color: var(--rework); }
+.foot { font-size: 13px; color: var(--muted); border-top: 1px solid var(--line); padding-top: 14px; display: flex; flex-direction: column; gap: 6px; }
+.foot ul { margin: 0; padding-left: 18px; }
+.toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(18px + env(safe-area-inset-bottom, 0px)); background: var(--ink); color: var(--bg); padding: 10px 16px; border-radius: 8px; z-index: 30; font-size: 14px; max-width: calc(100% - 32px); }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div class="brand"><h1>Personal OEE</h1><span>prototype</span></div>
+    <div class="seg" role="group" aria-label="Data">
+      <button id="m-practice" data-act="mode" data-v="practice">Practice</button>
+      <button id="m-live" data-act="mode" data-v="live">Live</button>
+    </div>
+  </header>
+  <div id="note"></div>
+  <nav class="tabs" role="tablist">
+    <button id="t-today" role="tab" data-act="tab" data-v="today">Today</button>
+    <button id="t-week" role="tab" data-act="tab" data-v="week">Week</button>
+    <button id="t-cal" role="tab" data-act="tab" data-v="cal">Calendar</button>
+  </nav>
+  <main id="main" class="section"></main>
+  <footer class="foot">
+    <b>Left out of this web prototype</b>
+    <ul>
+      <li>System-wide keyboard shortcut: press <kbd>D</kbd> while this page is open instead.</li>
+      <li>Menu-bar timer and macOS notifications: reminders show as banners here.</li>
+      <li>The timer only advances while the page is open; it catches up when you return.</li>
+    </ul>
+  </footer>
+</div>
+<div id="sheet"></div>
+<div id="toast"></div>
+
+<script>
+"use strict";
+/* ================= Engine (ported from oee-core) ================= */
+const BLOCK = 20, LEEWAY = 5, REWORK_LOSS = 0.5;
+const SETTINGS = { defaultStart: 540, defaultEnd: 1060, baseTarget: 20 };
+const CATS = [
+  { id: "sd", label: "System Down", short: "System Down", min: 20, desc: "The computer or system isn't accessible, or work isn't possible" },
+  { id: "co", label: "Change Over", short: "Change", min: 10, desc: "A slight loss of time from context switching. Counts as 10 min" },
+  { id: "idle", label: "Idle", short: "Idle", min: 20, desc: "Doing a non-work task, or taking an unscheduled break" },
+  { id: "mgmt", label: "Management", short: "Management", min: 20, desc: "Managing others, or in an unplanned meeting about work" },
+  { id: "wait", label: "Wait", short: "Wait", min: 20, desc: "Waiting for other people or a dependency to be ready" },
+];
+const CAT = Object.fromEntries(CATS.map(c => [c.id, c]));
+
+const lostBlocks = d => Math.floor(d / BLOCK) + ((d % BLOCK) > LEEWAY ? 1 : 0);
+function targetPoints(start, end) {
+  const s = SETTINGS;
+  const gained = Math.floor((Math.max(0, s.defaultStart - start) + Math.max(0, end - s.defaultEnd)) / BLOCK);
+  const missed = Math.floor((Math.max(0, start - s.defaultStart) + Math.max(0, s.defaultEnd - end)) / BLOCK);
+  return Math.max(0, s.baseTarget + gained - missed);
+}
+const overlap = (a, b, c, d) => Math.max(0, Math.min(b, d) - Math.max(a, c));
+function snap(w, ds) {
+  const down = t => t <= ds ? t : ds + Math.floor((t - ds) / BLOCK) * BLOCK;
+  const up = t => t <= ds ? t : ds + Math.ceil((t - ds) / BLOCK) * BLOCK;
+  return { ...w, start: down(w.start), end: up(w.end) };
+}
+const plannedOf = rec => (rec.planned || []).map(w => snap(w, rec.start)).sort((a, b) => a.start - b.start);
+
+function effective(rec, planned, ev) {
+  let s = Math.max(ev.start, rec.start), e = Math.min(ev.end, rec.end);
+  for (const w of planned) {
+    if (s >= w.start && s < w.end) s = w.end;
+    if (w.start > s && w.start < e) e = w.start;
+  }
+  return e > s ? [s, e] : null;
+}
+
+function buildBlocks(rec, events) {
+  const planned = plannedOf(rec);
+  const n = Math.floor((rec.end - rec.start) / BLOCK);
+  const slot = i => [rec.start + i * BLOCK, rec.start + (i + 1) * BLOCK];
+  const kinds = [];
+  for (let i = 0; i < n; i++) {
+    const [s, e] = slot(i);
+    let best = null;
+    for (const w of planned) {
+      const o = overlap(s, e, w.start, w.end);
+      if (o > 0 && (!best || o > best.o)) best = { o, w };
+    }
+    kinds.push(best ? { type: "plan", kind: best.w.kind, label: best.w.label } : null);
+  }
+  for (const ev of events) {
+    const eff = effective(rec, planned, ev);
+    if (!eff) continue;
+    const [s, e] = eff;
+    const need = lostBlocks(e - s);
+    if (!need) continue;
+    const cands = [];
+    for (let i = 0; i < n; i++) {
+      if (kinds[i]) continue;
+      const [bs, be] = slot(i);
+      const o = overlap(bs, be, s, e);
+      const dist = o > 0 ? 0 : Math.min(Math.abs(bs - s), Math.abs(be - e));
+      cands.push([o, dist, i]);
+    }
+    cands.sort((a, b) => b[0] - a[0] || a[1] - b[1] || a[2] - b[2]);
+    cands.slice(0, need).forEach(([, , i]) => { kinds[i] = { type: "lost" }; });
+  }
+  const edits = rec.edits || {};
+  return kinds.map((k, i) => {
+    const [s, e] = slot(i);
+    const ed = edits[s] || {};
+    const b = { start: s, end: e, note: ed.note || "" };
+    if (!k) return { ...b, type: "work", rework: !!ed.rework };
+    if (k.type === "lost") return { ...b, type: "lost", category: ed.category || null };
+    return { ...b, ...k };
+  });
+}
+
+function plannedMinutes(planned, start, end) {
+  let total = 0, covered = start;
+  for (const w of planned) {
+    const s = Math.max(w.start, covered, start), e = Math.min(w.end, end);
+    if (e > s) { total += e - s; covered = e; }
+  }
+  return total;
+}
+
+function dayInputs(rec, blocks, until) {
+  const end = Math.min(until ?? rec.end, rec.end);
+  const losses = Object.fromEntries(CATS.map(c => [c.id, 0]));
+  let work = 0, rework = 0;
+  for (const b of blocks) {
+    if (b.end > end) continue;
+    if (b.type === "work") { work++; if (b.rework) rework++; }
+    else if (b.type === "lost") { const c = CAT[b.category || "sd"]; losses[c.id] += c.min; }
+  }
+  const downtime = Object.values(losses).reduce((a, b) => a + b, 0);
+  return {
+    dayMinutes: Math.max(0, end - rec.start),
+    plannedMinutes: plannedMinutes(plannedOf(rec), rec.start, end),
+    losses, downtime, work, rework,
+    target: targetPoints(rec.start, rec.end),
+  };
+}
+
+const ZERO = { availability: 0, efficiency: 0, quality: 0, oee: 0, over: false };
+function metrics(i) {
+  if (!i || !i.work) return ZERO;
+  const pt = i.dayMinutes - i.plannedMinutes;
+  const availability = pt > 0 ? Math.max(0, (pt - i.downtime) / pt) : 0;
+  const efficiency = i.target > 0 ? i.work / i.target : 0;
+  const quality = (i.work - REWORK_LOSS * Math.min(i.rework, i.work)) / i.work;
+  return { availability, efficiency, quality, oee: availability * efficiency * quality, over: efficiency > 1 };
+}
+function dayResult(i) {
+  if (!i) return { status: "holiday", m: ZERO };
+  if (!i.work) return { status: "zero", m: ZERO };
+  return { status: "worked", m: metrics(i) };
+}
+function weekReport(list) {
+  const t = { dayMinutes: 0, plannedMinutes: 0, downtime: 0, work: 0, rework: 0, target: 0, losses: Object.fromEntries(CATS.map(c => [c.id, 0])) };
+  let n = 0;
+  for (const i of list) {
+    if (!i) continue;
+    n++;
+    for (const k of ["dayMinutes", "plannedMinutes", "downtime", "work", "rework", "target"]) t[k] += i[k];
+    for (const c of CATS) t.losses[c.id] += i.losses[c.id];
+  }
+  return { n, totals: t, m: n ? metrics(t) : ZERO };
+}
+
+/* Tracker */
+const addDown = (rec, s, e) => { if (e > s) rec.downtime.push({ start: s, end: e }); };
+function tick(rec, now) {
+  if (rec.ended) return false;
+  let changed = false;
+  if (rec.downSince != null) {
+    const w = plannedOf(rec).find(w => w.end > rec.downSince && w.start <= now);
+    if (w) { addDown(rec, rec.downSince, Math.max(w.start, rec.downSince)); rec.downSince = null; changed = true; }
+  }
+  if (now >= rec.end) {
+    if (rec.downSince != null) { addDown(rec, rec.downSince, rec.end); rec.downSince = null; }
+    rec.ended = true; changed = true;
+  }
+  return changed;
+}
+function modeOf(rec, now) {
+  if (!rec) return { m: "idle" };
+  if (rec.ended) return { m: "ended" };
+  const w = plannedOf(rec).find(w => now >= w.start && now < w.end);
+  if (w) return { m: "plan", w };
+  if (rec.downSince != null) return { m: "down" };
+  return { m: "work" };
+}
+function eventsFor(rec, now, live) {
+  const ev = [...rec.downtime];
+  if (live && rec.downSince != null) ev.push({ start: rec.downSince, end: Math.min(now, rec.end) });
+  return ev;
+}
+
+/* ================= Helpers ================= */
+const pad = n => String(n).padStart(2, "0");
+const fmt = m => pad(Math.floor(m / 60) % 24) + ":" + pad(m % 60);
+const parseT = s => { const [h, m] = String(s).split(":").map(Number); return (h || 0) * 60 + (m || 0); };
+const dateKey = d => d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate());
+const fromKey = k => { const [y, m, d] = k.split("-").map(Number); return new Date(y, m - 1, d); };
+const wdIdx = d => (d.getDay() + 6) % 7;
+const addDays = (d, n) => { const x = new Date(d.getFullYear(), d.getMonth(), d.getDate()); x.setDate(x.getDate() + n); return x; };
+const mondayOf = d => addDays(d, -wdIdx(d));
+const WD = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+const MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const dayLabel = k => { const d = fromKey(k); return WD[wdIdx(d)] + " " + d.getDate() + " " + MON[d.getMonth()]; };
+const pct = x => (Math.round(x * 1000) / 10).toFixed(1) + "%";
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const clone = o => JSON.parse(JSON.stringify(o));
+function lsGet(k) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : null; } catch { return null; } }
+function lsSet(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} }
+let toastTimer;
+function toast(msg) {
+  const el = document.getElementById("toast");
+  el.innerHTML = `<div class="toast" role="status">${esc(msg)}</div>`;
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => { el.innerHTML = ""; }, 3200);
+}
+
+/* ================= Sample practice data ================= */
+function sampleCalendar() {
+  const cal = [];
+  let id = 1;
+  for (let d = 0; d < 5; d++) {
+    cal.push({ id: id++, weekday: d, start: 540, end: 560, kind: "meeting", label: "Stand-up" });
+    cal.push({ id: id++, weekday: d, start: 720, end: 780, kind: "break", label: "Lunch" });
+  }
+  cal.push({ id: id++, weekday: 2, start: 840, end: 900, kind: "meeting", label: "Team review" });
+  cal.push({ id: id++, weekday: 3, start: 630, end: 660, kind: "meeting", label: "1:1" });
+  return cal;
+}
+function makePractice() {
+  const calendar = sampleCalendar();
+  const days = {};
+  const mon = addDays(mondayOf(new Date()), -7);
+  const plan = [
+    { d: 0, start: 540, end: 1060, ev: [[605, 642, ["mgmt", "mgmt"]], [850, 870, ["co"]], [920, 945, ["idle"]]], rw: [780], notes: { 600: "Unplanned call about the release date" } },
+    { d: 1, start: 540, end: 1060, ev: [[580, 640, ["sd", "sd", "sd"]], [810, 825, ["co"]], [960, 1010, ["mgmt", "mgmt", "mgmt"]]], rw: [660, 900], notes: { 580: "VPN outage" } },
+    { d: 2, start: 520, end: 1060, ev: [[660, 685, ["wait"]], [940, 960, ["co"]]], rw: [], notes: { 660: "Waiting on API keys" } },
+    { d: 3, start: 540, end: 1100, ev: [[800, 810, ["co"]], [980, 1000, ["idle"]]], rw: [580], notes: {} },
+    { d: 4, start: 540, end: 1060, ev: [], rw: [], notes: {} },
+  ];
+  for (const p of plan) {
+    const key = dateKey(addDays(mon, p.d));
+    const rec = {
+      date: key, start: p.start, end: p.end,
+      planned: calendar.filter(w => w.weekday === p.d).map(({ start, end, kind, label }) => ({ start, end, kind, label })),
+      downtime: p.ev.map(([s, e]) => ({ start: s, end: e })), edits: {}, downSince: null, ended: true, finalised: true,
+    };
+    const blocks = buildBlocks(rec, rec.downtime);
+    const cats = p.ev.flatMap(e => e[2]);
+    blocks.filter(b => b.type === "lost").forEach((b, i) => { rec.edits[b.start] = { category: cats[i] || "sd" }; });
+    for (const s of p.rw) { const b = blocks.find(b => b.start === s); if (b && b.type === "work") rec.edits[s] = { ...(rec.edits[s] || {}), rework: true }; }
+    for (const [s, note] of Object.entries(p.notes)) { const b = blocks.find(b => b.start === +s); if (b) rec.edits[s] = { ...(rec.edits[s] || {}), note }; }
+    days[key] = rec;
+  }
+  return { days, calendar, now: 540, today: dateKey(new Date()) };
+}
+
+/* ================= State and storage ================= */
+const S = {
+  mode: lsGet("poee-mode") || "practice",
+  tab: "today",
+  viewDate: null,
+  weekOffset: { practice: -1, live: 0 },
+  sheet: null,
+  practice: null,
+  live: { days: {}, calendar: [], ready: false, backend: "connecting" },
+};
+{
+  const p = lsGet("poee-practice");
+  S.practice = p && p.today === dateKey(new Date()) ? p : makePractice();
+}
+const ctx = () => S.mode === "practice" ? S.practice : S.live;
+const nowMin = () => S.mode === "practice" ? S.practice.now : (() => { const d = new Date(); return d.getHours() * 60 + d.getMinutes(); })();
+const todayKey = () => dateKey(new Date());
+
+let DB = null;
+const queues = {};
+function queueWrite(path, data) {
+  const run = () => DB.doc(path).set(data).catch(e => {
+    if (e && e.code === "unavailable") return new Promise(r => setTimeout(r, 600 + Math.random() * 900)).then(() => DB.doc(path).set(data));
+    throw e;
+  });
+  queues[path] = (queues[path] || Promise.resolve()).then(run, run).catch(e => {
+    toast(e && e.code === "quota_exceeded" ? "Storage is full. Delete old days to save new ones." : "Couldn't save. Check your connection and try again.");
+  });
+}
+function saveDay(key) {
+  if (S.mode === "practice") { lsSet("poee-practice", S.practice); return; }
+  const rec = S.live.days[key];
+  if (DB) queueWrite("days/" + key, clone(rec));
+  else lsSet("poee-live", { days: S.live.days, calendar: S.live.calendar });
+}
+function saveCalendar() {
+  if (S.mode === "practice") { lsSet("poee-practice", S.practice); return; }
+  if (DB) queueWrite("config/main", { calendar: clone(S.live.calendar) });
+  else lsSet("poee-live", { days: S.live.days, calendar: S.live.calendar });
+}
+
+(async () => {
+  let db = null;
+  try { db = window.claude && typeof window.claude.use === "function" ? await window.claude.use("db") : null; } catch { db = null; }
+  if (db) {
+    DB = db; S.live.backend = "db";
+    db.collection("days").onSnapshot(snap => {
+      const days = {};
+      for (const d of snap.docs) if (d.exists) days[d.id] = clone(d.data());
+      S.live.days = days; S.live.ready = true; softRender();
+    }, () => { S.live.backend = "error"; softRender(); });
+    db.doc("config/main").onSnapshot(s => {
+      S.live.calendar = s.exists ? clone(s.data().calendar || []) : [];
+      softRender();
+    }, () => {});
+  } else {
+    S.live.backend = "local";
+    const l = lsGet("poee-live");
+    if (l) { S.live.days = l.days || {}; S.live.calendar = l.calendar || []; }
+    S.live.ready = true; softRender();
+  }
+})();
+
+/* ================= Rendering ================= */
+function computeDay(key) {
+  const c = ctx(), rec = c.days[key];
+  if (!rec) return null;
+  const isToday = key === todayKey(), now = nowMin();
+  const blocks = buildBlocks(rec, eventsFor(rec, now, isToday));
+  const until = isToday && !rec.ended ? now : rec.end;
+  const inputs = dayInputs(rec, blocks, until);
+  return { rec, blocks, until, inputs, res: dayResult(inputs) };
+}
+
+function tiles(m, i, opts = {}) {
+  const sub = opts.sub || {};
+  return `<div class="tiles">
+    <div class="tile"><span class="k">Availability</span><span class="v">${pct(m.availability)}</span><span class="d">${sub.a ?? (i ? `${i.downtime} min lost of ${Math.max(0, i.dayMinutes - i.plannedMinutes)}` : "")}</span></div>
+    <div class="tile"><span class="k">Efficiency</span><span class="v">${pct(m.efficiency)}</span><span class="d">${i ? `${i.work} of ${i.target} points` : ""}</span></div>
+    <div class="tile"><span class="k">Quality</span><span class="v">${pct(m.quality)}</span><span class="d">${i ? `${i.rework} rework` : ""}</span></div>
+    <div class="tile oee"><span class="k">OEE</span><span class="v">${pct(m.oee)}</span><span class="d">${opts.oeeNote || "A × E × Q"}</span></div>
+  </div>`;
+}
+
+function statusPill(res) {
+  if (res.status === "holiday") return `<span class="pill holiday">Holiday</span>`;
+  if (res.status === "zero") return `<span class="pill zero">0% day</span>`;
+  if (res.m.over) return `<span class="pill over">Over capacity</span>`;
+  return `<span class="pill ok">Worked</span>`;
+}
+
+function blockLabel(b) {
+  if (b.type === "work") return b.rework ? "Rework" : "Work";
+  if (b.type === "lost") return b.category ? CAT[b.category].short : "Categorise";
+  return b.label || (b.kind === "break" ? "Break" : "Meeting");
+}
+
+function shiftLog(day, isToday, now) {
+  const { rec, blocks, until } = day;
+  const rows = [];
+  for (let i = 0; i < blocks.length; i += 3) rows.push(blocks.slice(i, i + 3));
+  const cells = rows.map(r => {
+    const h = fmt(r[0].start);
+    const cs = r.map(b => {
+      const done = b.end <= until;
+      const current = isToday && !rec.ended && now >= b.start && now < b.end;
+      let cls = "blk " + b.type;
+      if (b.type === "lost") cls += b.category === "co" ? " co" : b.category ? "" : " uncat";
+      if (!done) cls += " future";
+      if (current) cls += " now";
+      const editable = done || b.type === "plan" || current;
+      const name = done || b.type === "plan" ? blockLabel(b) : current ? (rec.downSince != null ? "Downtime…" : "In progress") : "";
+      const marks = `${b.rework ? '<i class="mark rw" title="Rework"></i>' : ""}${b.note ? '<i class="mark note" title="Has a note"></i>' : ""}`;
+      return `<button class="${cls}" data-act="block" data-s="${b.start}" ${editable ? "" : "disabled"} aria-label="${fmt(b.start)} ${esc(name || "Upcoming")}">
+        <span class="t">${fmt(b.start)}</span><span class="n">${esc(name)}</span>${marks ? `<span class="marks">${marks}</span>` : ""}</button>`;
+    }).join("");
+    return `<div class="hour"><span class="h">${h}</span>${cs}</div>`;
+  }).join("");
+  const partial = (rec.end - rec.start) % BLOCK;
+  return `<div class="section">
+    <div class="sechead"><h3>Shift log</h3><span class="small muted num">${fmt(rec.start)}–${fmt(rec.end)} · ${blocks.length} blocks${partial ? ` + ${partial} min` : ""}</span></div>
+    <div class="legend">
+      <span><i class="sw" style="background:var(--work-soft);outline:1px solid var(--work)"></i>Work</span>
+      <span><i class="sw" style="background:var(--down-soft);outline:1px solid var(--down)"></i>Lost</span>
+      <span><i class="sw" style="background:var(--change-soft);outline:1px solid var(--change)"></i>Change Over</span>
+      <span><i class="sw" style="background:var(--plan-soft);outline:1px solid var(--plan)"></i>Planned</span>
+      <span><i class="mark rw"></i>Rework</span><span><i class="mark note"></i>Note</span>
+    </div>
+    <div class="log">${cells}</div>
+  </div>`;
+}
+
+function renderToday() {
+  const c = ctx(), now = nowMin();
+  const key = S.viewDate || todayKey();
+  const isToday = key === todayKey();
+  let html = "";
+
+  if (!isToday) html += `<div class="row"><button class="btn" data-act="back">← Back to today</button></div>`;
+
+  // Tick today's record forward
+  const rec0 = c.days[key];
+  if (isToday && rec0 && tick(rec0, now)) saveDay(key);
+
+  if (S.mode === "live" && !S.live.ready) return html + `<p class="muted">Loading your days…</p>`;
+
+  if (isToday && !rec0) {
+    const wd = wdIdx(new Date());
+    const planned = c.calendar.filter(w => w.weekday === wd).sort((a, b) => a.start - b.start);
+    const defStart = S.mode === "practice" ? fmt(c.now) : fmt(now);
+    html += `<section class="andon">
+      <div class="stack" aria-hidden="true"><i class="lamp red"></i><i class="lamp amber"></i><i class="lamp green"></i></div>
+      <div class="state"><span class="label">Not started</span><span class="sub">${dayLabel(key)} · Default day 09:00–17:40, target 20 points</span></div>
+      <div class="startform">
+        <label class="field" for="startAt">Start time<input id="startAt" type="time" value="${defStart}"></label>
+        <div class="small muted">${planned.length ? "Planned today: " + planned.map(w => `${esc(w.label || w.kind)} ${fmt(w.start)}–${fmt(w.end)}`).join(" · ") : "No planned breaks or meetings for today. Add them in Calendar."}</div>
+      </div>
+      <button class="bigbtn start" data-act="start">Start day</button>
+      ${simClock()}
+    </section>`;
+    return html;
+  }
+  if (!rec0) return html + `<p class="muted">Nothing logged on ${dayLabel(key)}. It counts as a holiday.</p>`;
+
+  const day = computeDay(key);
+  const { rec, blocks, inputs, res } = day;
+  const uncat = blocks.filter(b => b.type === "lost" && !b.category && b.end <= day.until).length;
+
+  if (isToday) {
+    const md = modeOf(rec, now);
+    const idx = Math.floor((now - rec.start) / BLOCK);
+    const left = BLOCK - ((now - rec.start) % BLOCK);
+    let label, sub, cls, lamp;
+    if (md.m === "work") { label = "Work"; cls = "work"; lamp = "green"; sub = `Block ${idx + 1} of ${blocks.length} · ${left} min left`; }
+    else if (md.m === "down") { label = "Downtime"; cls = "down"; lamp = "red"; sub = `Since ${fmt(rec.downSince)} · ${now - rec.downSince} min${now - rec.downSince <= LEEWAY ? " · under 5 min is ignored" : ""}`; }
+    else if (md.m === "plan") { label = md.w.kind === "break" ? "Break" : "Meeting"; cls = "plan"; lamp = "amber"; sub = `${esc(md.w.label || "")} · until ${fmt(md.w.end)}, then back to Work`; }
+    else { label = "Day ended"; cls = ""; lamp = ""; sub = `Finished at ${fmt(rec.end)}`; }
+    const btn = md.m === "work" ? `<button class="bigbtn go-down" data-act="toggle">Start downtime <kbd>D</kbd></button>`
+      : md.m === "down" ? `<button class="bigbtn go-work" data-act="toggle">Back to work <kbd>D</kbd></button>`
+      : md.m === "plan" ? `<button class="bigbtn" disabled>Planned downtime</button>`
+      : `<button class="bigbtn start" data-act="extend">Extend 20 min</button>`;
+    html += `<section class="andon">
+      <div class="stack" aria-hidden="true"><i class="lamp red ${lamp === "red" ? "on" : ""}"></i><i class="lamp amber ${lamp === "amber" ? "on" : ""}"></i><i class="lamp green ${lamp === "green" ? "on" : ""}"></i></div>
+      <div class="state"><span class="label ${cls}">${label}</span><div class="clockrow"><span class="clock">${fmt(now)}</span><span class="sub">${sub}</span></div></div>
+      ${btn}
+      ${simClock()}
+    </section>`;
+    if ((md.m === "plan" || md.m === "ended") && uncat && !(md.m === "ended" && rec.finalised)) {
+      html += `<div class="banner warn"><span><b>${uncat} lost ${uncat === 1 ? "block needs" : "blocks need"} a category.</b> ${md.m === "ended" ? "Anything left becomes System Down when you finish." : "Tap the striped blocks below."}</span>${md.m === "ended" ? `<button class="btn primary" data-act="finalise">Finish day</button>` : ""}</div>`;
+    } else if (md.m === "ended" && !rec.finalised) {
+      html += `<div class="banner warn"><span><b>Day ended.</b> Everything is categorised.</span><button class="btn primary" data-act="finalise">Finish day</button></div>`;
+    }
+  } else {
+    html += `<div class="sechead"><h2>${dayLabel(key)}</h2>${statusPill(res)}</div>`;
+    if (uncat && !rec.finalised) html += `<div class="banner warn"><span><b>${uncat} lost ${uncat === 1 ? "block" : "blocks"} uncategorised.</b> They count as System Down.</span><button class="btn primary" data-act="finalise" data-k="${key}">Finish day</button></div>`;
+  }
+
+  html += tiles(res.m, inputs, { oeeNote: isToday && !rec.ended ? "So far today" : "A × E × Q" });
+  if (res.m.over) html += `<div class="banner over"><span><b>Over capacity.</b> Efficiency is above 100%. Check whether any lost time was logged as Work.</span></div>`;
+  if (res.status === "zero" && (!isToday || rec.ended)) html += `<div class="banner warn"><span><b>0% day.</b> Time was logged but no Work points, so every value is 0.</span></div>`;
+
+  html += shiftLog(day, isToday, now);
+
+  if (isToday) {
+    const md = modeOf(rec, now);
+    html += `<div class="row">
+      <button class="btn" data-act="extend">Extend 20 min</button>
+      ${md.m !== "ended" ? `<button class="btn" data-act="endnow">End day now</button>` : ""}
+      ${S.mode === "practice" ? `<button class="btn danger" data-act="resetToday">Restart today</button>` : ""}
+    </div>`;
+  }
+  return html;
+}
+
+function simClock() {
+  if (S.mode !== "practice") return "";
+  return `<div class="simclock"><span class="muted">Practice clock</span>
+    <button class="chipbtn" data-act="sim" data-v="1">+1 min</button>
+    <button class="chipbtn" data-act="sim" data-v="5">+5 min</button>
+    <button class="chipbtn" data-act="sim" data-v="20">+20 min</button>
+    <button class="chipbtn" data-act="sim" data-v="60">+1 hr</button></div>`;
+}
+
+function renderWeek() {
+  const c = ctx();
+  const off = S.weekOffset[S.mode];
+  const mon = addDays(mondayOf(new Date()), off * 7);
+  const keys = [...Array(7)].map((_, i) => dateKey(addDays(mon, i)));
+  const days = keys.map(k => ({ k, d: computeDay(k) }));
+  const rep = weekReport(days.map(x => x.d ? x.d.inputs : null));
+  const sun = addDays(mon, 6);
+  let html = `<div class="sechead">
+    <div class="weeknav"><button data-act="wk" data-v="-1" aria-label="Previous week">‹</button>
+      <h2>${mon.getDate()} ${MON[mon.getMonth()]} – ${sun.getDate()} ${MON[sun.getMonth()]}</h2>
+      <button data-act="wk" data-v="1" aria-label="Next week">›</button></div>
+    <span class="small muted">${rep.n ? `Pooled from ${rep.n} working ${rep.n === 1 ? "day" : "days"}, holidays left out` : "No working days this week"}</span></div>`;
+  html += tiles(rep.m, rep.n ? rep.totals : null, { oeeNote: "Week, pooled" });
+
+  const rows = days.filter(({ k, d }) => d || wdIdx(fromKey(k)) < 5).map(({ k, d }) => {
+    const r = d ? d.res : dayResult(null);
+    const m = r.m;
+    return `<tr class="${d ? "click" : "dim"}" ${d ? `data-act="openday" data-k="${k}" tabindex="0"` : ""}>
+      <td>${dayLabel(k)}</td><td>${statusPill(r)}</td>
+      <td class="num">${d ? pct(m.availability) : "–"}</td><td class="num">${d ? pct(m.efficiency) : "–"}</td>
+      <td class="num">${d ? pct(m.quality) : "–"}</td><td class="num"><b>${d ? pct(m.oee) : "–"}</b></td>
+      <td class="num">${d ? `${d.inputs.work}/${d.inputs.target}` : "–"}</td></tr>`;
+  }).join("");
+  html += `<div class="tablewrap"><table>
+    <thead><tr><th>Day</th><th>Status</th><th>Avail.</th><th>Effic.</th><th>Quality</th><th>OEE</th><th>Points</th></tr></thead>
+    <tbody>${rows}</tbody>
+    <tfoot><tr><td>Week</td><td></td><td class="num">${pct(rep.m.availability)}</td><td class="num">${pct(rep.m.efficiency)}</td><td class="num">${pct(rep.m.quality)}</td><td class="num">${pct(rep.m.oee)}</td><td class="num">${rep.totals.work}/${rep.totals.target}</td></tr></tfoot>
+  </table></div>`;
+
+  const maxL = Math.max(1, ...CATS.map(c => rep.totals.losses[c.id]));
+  html += `<div class="section"><div class="sechead"><h3>Loss breakdown</h3><span class="small muted num">${rep.totals.downtime} min lost</span></div>
+    <div class="bars">${CATS.map(cat => {
+      const v = rep.totals.losses[cat.id];
+      return `<div class="bar"><span>${cat.label}</span><span class="track"><span class="fill ${cat.id === "co" ? "co" : ""}" style="width:${(v / maxL) * 100}%"></span></span><span class="val num">${v} min</span></div>`;
+    }).join("")}
+    <div class="bar"><span>Rework</span><span class="track"><span class="fill rw" style="width:${Math.min(100, (rep.totals.rework / Math.max(1, rep.totals.work)) * 100 * 5)}%"></span></span><span class="val num">${rep.totals.rework} ${rep.totals.rework === 1 ? "block" : "blocks"}</span></div>
+    </div></div>`;
+
+  const flagged = Object.keys(c.days).sort().reverse().map(k => ({ k, d: computeDay(k) })).filter(x => x.d && x.d.res.m.over);
+  html += `<div class="section"><div class="sechead"><h3>Over capacity</h3><span class="small muted">All days above 100% Efficiency, for review</span></div>
+    ${flagged.length ? `<div class="tablewrap"><table><thead><tr><th>Day</th><th>Points</th><th>Efficiency</th><th></th></tr></thead><tbody>
+      ${flagged.map(({ k, d }) => `<tr class="click" data-act="openday" data-k="${k}" tabindex="0"><td>${dayLabel(k)}</td><td class="num">${d.inputs.work}/${d.inputs.target}</td><td class="num">${pct(d.res.m.efficiency)}</td><td>Review →</td></tr>`).join("")}
+    </tbody></table></div>` : `<p class="muted small">No over-capacity days yet.</p>`}</div>`;
+  return html;
+}
+
+function renderCal() {
+  const c = ctx();
+  let html = `<div class="sechead"><h2>Planned downtime</h2><span class="small muted">Repeats every week. Applies to days you start after a change.</span></div>`;
+  html += `<div class="cal">${WD.map((wd, i) => {
+    const items = c.calendar.filter(w => w.weekday === i).sort((a, b) => a.start - b.start);
+    return `<div class="calday"><span class="wd">${wd}</span>${items.length ? `<ul>${items.map(w => {
+      const s = snap(w, SETTINGS.defaultStart);
+      const off = s.start !== w.start || s.end !== w.end;
+      return `<li><span><span class="num">${fmt(w.start)}–${fmt(w.end)}</span> · ${w.kind === "break" ? "Break" : "Meeting"}${w.label ? ` · ${esc(w.label)}` : ""}${off ? `<br><span class="small muted">Counts as ${fmt(s.start)}–${fmt(s.end)} (${s.end - s.start} min) on a 09:00 start</span>` : ""}</span>
+        <button class="chipbtn" data-act="calrm" data-id="${w.id}">Remove</button></li>`;
+    }).join("")}</ul>` : `<span class="empty">Nothing planned</span>`}</div>`;
+  }).join("")}</div>`;
+  html += `<form class="addform" id="calform">
+    <label class="field" for="cal-wd">Day<select id="cal-wd">${WD.map((w, i) => `<option value="${i}">${w}</option>`).join("")}<option value="wk">Mon–Fri</option></select></label>
+    <label class="field" for="cal-s">From<input id="cal-s" type="time" value="12:00" required></label>
+    <label class="field" for="cal-e">To<input id="cal-e" type="time" value="13:00" required></label>
+    <label class="field" for="cal-k">Type<select id="cal-k"><option value="meeting">Meeting</option><option value="break">Break</option></select></label>
+    <label class="field wide" for="cal-l">Name<input id="cal-l" type="text" placeholder="e.g. Stand-up" maxlength="40"></label>
+    <button class="btn primary" type="submit">Add</button>
+  </form>`;
+  return html;
+}
+
+function renderSheet() {
+  const el = document.getElementById("sheet");
+  if (!S.sheet) { el.innerHTML = ""; return; }
+  const { key, start } = S.sheet;
+  const day = computeDay(key);
+  const b = day && day.blocks.find(x => x.start === start);
+  if (!b) { S.sheet = null; el.innerHTML = ""; return; }
+  const sel = S.sheet.cat !== undefined ? S.sheet.cat : b.category;
+  let body = "";
+  if (b.type === "lost") {
+    body = `<div class="cats" role="group" aria-label="Category">${CATS.map(cat => `<button class="cat ${cat.id === "co" ? "co" : ""}" data-act="pickcat" data-v="${cat.id}" aria-pressed="${sel === cat.id}"><b>${cat.label}</b><span>${cat.desc}</span></button>`).join("")}</div>`;
+  } else if (b.type === "work") {
+    const rw = S.sheet.rw !== undefined ? S.sheet.rw : b.rework;
+    body = `<label class="check" for="rw"><input id="rw" type="checkbox" ${rw ? "checked" : ""}> Mark as Rework (errors or corrections)</label>
+      <p class="small muted">Rework still scores 1 Work point. It counts as half a loss in Quality.</p>`;
+  } else {
+    body = `<p class="muted">Planned ${b.kind === "break" ? "break" : "meeting"}${b.label ? `: ${esc(b.label)}` : ""}. Planned time doesn't count against Availability.</p>`;
+  }
+  const title = b.type === "lost" ? "Lost time" : b.type === "work" ? "Work" : "Planned downtime";
+  el.innerHTML = `<div class="scrim" data-act="closesheet"><div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sh-t" data-stop>
+    <div class="sechead"><h2 id="sh-t">${title}</h2><span class="num muted">${fmt(b.start)}–${fmt(b.end)}</span></div>
+    ${body}
+    <label class="field" for="blocknote">Note<textarea id="blocknote" rows="2" maxlength="300" placeholder="Optional">${esc(S.sheet.note !== undefined ? S.sheet.note : b.note)}</textarea></label>
+    <div class="row"><button class="btn primary" data-act="savesheet">Save</button><button class="btn" data-act="closesheet">Cancel</button></div>
+  </div></div>`;
+}
+
+function render() {
+  for (const m of ["practice", "live"]) document.getElementById("m-" + m).setAttribute("aria-pressed", S.mode === m);
+  for (const t of ["today", "week", "cal"]) document.getElementById("t-" + t).setAttribute("aria-selected", S.tab === t);
+  const note = document.getElementById("note");
+  note.innerHTML = S.mode === "practice"
+    ? `<div class="practice-note"><span><b>Practice:</b> sample week and a fake clock. Nothing here is your real data.</span><button class="chipbtn" data-act="resetPractice">Reset sample</button></div>`
+    : S.live.backend === "local"
+      ? `<div class="practice-note"><span><b>Live:</b> saving in this browser only. Open from claude.ai to save across devices.</span></div>`
+      : S.live.backend === "error" ? `<div class="practice-note"><span><b>Live:</b> lost the connection to your saved days. Reload the page.</span></div>` : "";
+  const main = document.getElementById("main");
+  main.innerHTML = S.tab === "today" ? renderToday() : S.tab === "week" ? renderWeek() : renderCal();
+  renderSheet();
+}
+function softRender() {
+  const a = document.activeElement;
+  if (S.sheet || (a && /INPUT|TEXTAREA|SELECT/.test(a.tagName))) return;
+  render();
+}
+
+/* ================= Actions ================= */
+function edit(rec, s) { rec.edits = rec.edits || {}; return (rec.edits[s] = rec.edits[s] || {}); }
+function actToggle() {
+  const key = todayKey(), rec = ctx().days[key];
+  if (!rec || S.viewDate) return;
+  const now = nowMin();
+  tick(rec, now);
+  const md = modeOf(rec, now).m;
+  if (md === "work") { rec.downSince = now; }
+  else if (md === "down") {
+    const d = now - rec.downSince;
+    addDown(rec, rec.downSince, now); rec.downSince = null;
+    if (d <= LEEWAY) toast(`${d} min stop ignored. It counts as Work.`);
+    else toast(`${d} min stop logged as ${lostBlocks(d)} lost ${lostBlocks(d) === 1 ? "block" : "blocks"}. Categorise it later.`);
+  } else return;
+  saveDay(key); render();
+}
+
+document.addEventListener("click", e => {
+  const t = e.target.closest("[data-act]");
+  if (!t) return;
+  if (t.dataset.act === "closesheet" && e.target.closest("[data-stop]") && !e.target.closest("button")) return;
+  const act = t.dataset.act, c = ctx();
+  switch (act) {
+    case "mode": S.mode = t.dataset.v; S.viewDate = null; lsSet("poee-mode", S.mode); render(); break;
+    case "tab": S.tab = t.dataset.v; if (S.tab !== "today") S.viewDate = null; render(); break;
+    case "back": S.viewDate = null; render(); break;
+    case "start": {
+      const key = todayKey();
+      const start = parseT(document.getElementById("startAt").value || fmt(nowMin()));
+      const wd = wdIdx(new Date());
+      const end = Math.max(SETTINGS.defaultEnd, start + BLOCK);
+      c.days[key] = {
+        date: key, start, end,
+        planned: c.calendar.filter(w => w.weekday === wd).map(({ start, end, kind, label }) => ({ start, end, kind, label })),
+        downtime: [], edits: {}, downSince: null, ended: false, finalised: false,
+      };
+      if (S.mode === "practice" && c.now < start) c.now = start;
+      saveDay(key); render(); break;
+    }
+    case "toggle": actToggle(); break;
+    case "extend": {
+      const key = todayKey(), rec = c.days[key]; if (!rec) break;
+      rec.end += BLOCK;
+      if (rec.ended && nowMin() < rec.end) { rec.ended = false; rec.finalised = false; }
+      saveDay(key); toast(`Day now ends at ${fmt(rec.end)}. Target ${targetPoints(rec.start, rec.end)} points.`); render(); break;
+    }
+    case "endnow": {
+      const key = todayKey(), rec = c.days[key]; if (!rec) break;
+      const now = nowMin();
+      rec.end = Math.max(rec.start + BLOCK, now);
+      tick(rec, rec.end);
+      saveDay(key); render(); break;
+    }
+    case "finalise": {
+      const key = t.dataset.k || todayKey(), rec = c.days[key]; if (!rec) break;
+      const d = computeDay(key);
+      for (const b of d.blocks) if (b.type === "lost" && !b.category && b.end <= d.until) edit(rec, b.start).category = "sd";
+      rec.finalised = true; saveDay(key); toast("Day finished."); render(); break;
+    }
+    case "sim": {
+      const key = todayKey(), rec = c.days[key];
+      S.practice.now = Math.min(23 * 60 + 59, S.practice.now + Number(t.dataset.v));
+      if (rec) tick(rec, S.practice.now);
+      saveDay(key); render(); break;
+    }
+    case "resetToday": delete S.practice.days[todayKey()]; S.practice.now = 540; saveDay(); render(); break;
+    case "resetPractice": S.practice = makePractice(); lsSet("poee-practice", S.practice); S.viewDate = null; render(); toast("Sample data reset."); break;
+    case "block": S.sheet = { key: S.viewDate || todayKey(), start: Number(t.dataset.s) }; renderSheet(); setTimeout(() => { const f = document.querySelector(".sheet button, .sheet input"); f && f.focus(); }, 0); break;
+    case "pickcat": S.sheet.cat = t.dataset.v; S.sheet.note = document.getElementById("blocknote").value; renderSheet(); break;
+    case "closesheet": S.sheet = null; renderSheet(); render(); break;
+    case "savesheet": {
+      const { key, start } = S.sheet; const rec = c.days[key];
+      const d = computeDay(key); const b = d.blocks.find(x => x.start === start);
+      const ed = edit(rec, start);
+      if (b.type === "lost" && S.sheet.cat) ed.category = S.sheet.cat;
+      if (b.type === "work") ed.rework = document.getElementById("rw").checked;
+      const note = document.getElementById("blocknote").value.trim();
+      if (note) ed.note = note; else delete ed.note;
+      S.sheet = null; saveDay(key); render(); toast("Saved."); break;
+    }
+    case "wk": S.weekOffset[S.mode] += Number(t.dataset.v); render(); break;
+    case "openday": S.tab = "today"; S.viewDate = t.dataset.k === todayKey() ? null : t.dataset.k; render(); window.scrollTo(0, 0); break;
+    case "calrm": c.calendar = c.calendar.filter(w => String(w.id) !== t.dataset.id); saveCalendar(); render(); break;
+  }
+});
+document.addEventListener("change", e => { if (e.target.id === "rw" && S.sheet) S.sheet.rw = e.target.checked; });
+document.addEventListener("submit", e => {
+  if (e.target.id !== "calform") return;
+  e.preventDefault();
+  const c = ctx();
+  const s = parseT(document.getElementById("cal-s").value), en = parseT(document.getElementById("cal-e").value);
+  if (en <= s) { toast("The end time must be after the start time."); return; }
+  const wdv = document.getElementById("cal-wd").value;
+  const days = wdv === "wk" ? [0, 1, 2, 3, 4] : [Number(wdv)];
+  const kind = document.getElementById("cal-k").value, label = document.getElementById("cal-l").value.trim();
+  let id = Math.max(0, ...c.calendar.map(w => w.id || 0));
+  for (const d of days) c.calendar.push({ id: ++id, weekday: d, start: s, end: en, kind, label });
+  saveCalendar(); render(); toast("Added to the weekly calendar.");
+});
+document.addEventListener("keydown", e => {
+  const a = document.activeElement;
+  if (e.key === "Escape" && S.sheet) { S.sheet = null; render(); return; }
+  if (a && /INPUT|TEXTAREA|SELECT/.test(a.tagName)) return;
+  if ((e.key === "d" || e.key === "D") && !e.metaKey && !e.ctrlKey && !e.altKey && S.tab === "today" && !S.sheet) { e.preventDefault(); actToggle(); }
+  if (e.key === "Enter" && a && a.dataset && a.dataset.act === "openday") a.click();
+});
+setInterval(() => { if (S.mode === "live" && S.tab === "today") softRender(); }, 15000);
+document.addEventListener("visibilitychange", () => { if (!document.hidden) softRender(); });
+
+render();
+</script>

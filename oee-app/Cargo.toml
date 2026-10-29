@@ -1,0 +1,15 @@
+[package]
+name = "oee-app"
+description = "Personal OEE desktop app (egui) on top of oee-core."
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+
+[[bin]]
+name = "PersonalOEE"
+path = "src/main.rs"
+
+[dependencies]
+oee-core = { path = "../oee-core" }
+eframe = "0.29"
+chrono = { version = "0.4", default-features = false, features = ["clock"] }

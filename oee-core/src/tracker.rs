@@ -160,4 +160,21 @@ impl Tracker {
     pub fn inputs(&self) -> DayInputs {
         self.record.inputs(&self.settings)
     }
+
+    /// The record as it stands at `now`: a running stop is added as a
+    /// provisional event `(since, now)`, so it shows in the log and metrics
+    /// before it is toggled off (FR-013, FR-017). The stored record is unchanged.
+    pub fn live_record(&self, now: u32) -> DayRecord {
+        let mut record = self.record.clone();
+        if let Mode::Downtime { since } = self.mode {
+            record.add_downtime(since, now);
+        }
+        record
+    }
+
+    /// Totals so far: only time and blocks that have finished by `now` count,
+    /// including a stop that is still running.
+    pub fn inputs_at(&self, now: u32) -> DayInputs {
+        self.live_record(now).inputs_until(&self.settings, now)
+    }
 }
