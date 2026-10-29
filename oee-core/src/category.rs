@@ -1,11 +1,13 @@
 //! Lost-time and Planned Downtime categories.
 
+use serde::{Deserialize, Serialize};
+
 use std::ops::AddAssign;
 
 use crate::rules::BLOCK_MINUTES;
 
 /// FR-009, FR-024: the five fixed lost-time categories.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum LostCategory {
     SystemDown,
     ChangeOver,
@@ -58,7 +60,7 @@ impl LostCategory {
 }
 
 /// FR-031: Planned Downtime types.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum PlannedKind {
     Break,
     Meeting,

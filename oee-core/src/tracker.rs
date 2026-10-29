@@ -59,6 +59,23 @@ impl Tracker {
         }
     }
 
+    /// D-12: rebuild the tracker from a saved record. A stop that was running
+    /// when the app closed is picked up with its original start; `tick(now)` then
+    /// applies any planned window or end of day passed while the app was closed.
+    pub fn resume(record: DayRecord, settings: Settings, now: u32) -> Self {
+        let mode = match record.down_since {
+            Some(since) => Mode::Downtime { since },
+            None => Mode::Work,
+        };
+        let mut t = Self {
+            record,
+            settings,
+            mode,
+        };
+        t.tick(now);
+        t
+    }
+
     pub fn mode(&self) -> Mode {
         self.mode
     }
@@ -70,6 +87,7 @@ impl Tracker {
             if self.mode == Mode::Ended && now < end {
                 self.mode = Mode::Work;
             }
+            self.sync();
         }
     }
 
@@ -85,6 +103,7 @@ impl Tracker {
             }
             other => other,
         };
+        self.sync();
         self.mode
     }
 
@@ -133,7 +152,16 @@ impl Tracker {
                 }
             }
         }
+        self.sync();
         notices
+    }
+
+    /// Keep the saved record's running-stop marker in step with the mode.
+    fn sync(&mut self) {
+        self.record.down_since = match self.mode {
+            Mode::Downtime { since } => Some(since),
+            _ => None,
+        };
     }
 
     /// FR-026: remind if anything needs categorising.

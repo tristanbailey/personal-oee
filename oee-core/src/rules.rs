@@ -1,5 +1,7 @@
 //! Core constants and counting rules.
 
+use serde::{Deserialize, Serialize};
+
 /// FR-001, FR-002: every block is a fixed 20 minutes.
 pub const BLOCK_MINUTES: u32 = 20;
 
@@ -32,7 +34,7 @@ pub fn lost_blocks(duration: u32) -> u32 {
 }
 
 /// User-level defaults.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Settings {
     /// FR-004: default start, 09:00.
     pub default_start: u32,

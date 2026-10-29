@@ -33,16 +33,16 @@ Each item has an ID (D-xx), the PRD requirements it covers, and a "Done when" ch
 
 ### Saving
 
-- [ ] D-10 Add `serde` derives to `DayRecord`, `DowntimeEvent`, `PlannedWindow`, `PlannedKind`, `LostCategory`, `WeeklyCalendar` and `Settings`. The private `edits` map must be included. Done when: a record round-trips through JSON with categories, rework and notes intact.
-- [ ] D-11 Add `finalised: bool` to `DayRecord`, set by `finalise()`. The prototype uses it to hide the Finish day banner once done (FR-027).
-- [ ] D-12 Add `Tracker::resume(record, settings, now)` that rebuilds the mode from a saved record, including running downtime (`down_since`) and whether the day has ended. Done when: quitting mid-downtime and reopening shows Downtime with the original start time.
-- [ ] D-13 Save each day to `~/Library/Application Support/PersonalOEE/days/YYYY-MM-DD.json`, and the calendar to `calendar.json`. Write after every change: start, toggle, edit, extend, end, finish. Use write-to-temp then rename so a crash can't corrupt a file. Done when: quitting at any point and reopening loses nothing.
-- [ ] D-14 On launch, open today's record if it exists, otherwise show the Not started screen. Remove the "New day" button. A new date starts a new record automatically.
+- [x] D-10 Add `serde` derives to `DayRecord`, `DowntimeEvent`, `PlannedWindow`, `PlannedKind`, `LostCategory`, `WeeklyCalendar` and `Settings`. The private `edits` map must be included. Done when: a record round-trips through JSON with categories, rework and notes intact.
+- [x] D-11 Add `finalised: bool` to `DayRecord`, set by `finalise()`. The prototype uses it to hide the Finish day banner once done (FR-027).
+- [x] D-12 Add `Tracker::resume(record, settings, now)` that rebuilds the mode from a saved record, including running downtime (`down_since`) and whether the day has ended. Done when: quitting mid-downtime and reopening shows Downtime with the original start time.
+- [x] D-13 Save each day to `~/Library/Application Support/PersonalOEE/days/YYYY-MM-DD.json`, and the calendar to `calendar.json`. Write after every change: start, toggle, edit, extend, end, finish. Use write-to-temp then rename so a crash can't corrupt a file. Done when: quitting at any point and reopening loses nothing.
+- [x] D-14 On launch, open today's record if it exists, otherwise show the Not started screen. Remove the "New day" button. A new date starts a new record automatically.
 
 ### Andon panel
 
-- [ ] D-15 Add a stack light: three lamps, red = Downtime, amber = Planned, green = Work, all off = Not started or Day ended. Done when: each mode lights exactly one lamp, or none.
-- [ ] D-16 Add a big status word (WORK / DOWNTIME / BREAK / MEETING / DAY ENDED / NOT STARTED), the current clock, and a sub-line that changes with the mode. Done when each mode shows:
+- [x] D-15 Add a stack light: three lamps, red = Downtime, amber = Planned, green = Work, all off = Not started or Day ended. Done when: each mode lights exactly one lamp, or none.
+- [x] D-16 Add a big status word (WORK / DOWNTIME / BREAK / MEETING / DAY ENDED / NOT STARTED), the current clock, and a sub-line that changes with the mode. Done when each mode shows:
   - Work: "Block 7 of 26 · 12 min left".
   - Downtime: "Since 10:05 · 7 min". Under 5 minutes it adds "under 5 min is ignored" (FR-014).
   - Planned: "Lunch · until 13:00, then back to Work" (FR-037).

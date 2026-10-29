@@ -5,6 +5,8 @@
 //! blocks are rebuilt from those facts every time, so changing the end time or
 //! recategorising never leaves stale state behind.
 
+use serde::{Deserialize, Serialize};
+
 use std::collections::BTreeMap;
 use std::fmt;
 
@@ -14,14 +16,14 @@ use crate::metrics::DayInputs;
 use crate::rules::{lost_blocks, Settings, BLOCK_MINUTES};
 
 /// A downtime stop, from shortcut-on to shortcut-off (FR-011).
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DowntimeEvent {
     pub start: u32,
     pub end: u32,
 }
 
 /// What the user has changed on a block, keyed by the block's start minute.
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 struct BlockEdit {
     category: Option<LostCategory>,
     rework: bool,
@@ -80,12 +82,19 @@ impl fmt::Display for EditError {
 impl std::error::Error for EditError {}
 
 /// Everything recorded for one working day.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DayRecord {
     pub start: u32,
     pub end: u32,
     pub planned: Vec<PlannedWindow>,
     pub downtime: Vec<DowntimeEvent>,
+    /// FR-027: set once the user has finished the day.
+    #[serde(default)]
+    pub finalised: bool,
+    /// Start of a stop that is still running, so a restart can pick it up.
+    /// Kept in step with the mode by the tracker.
+    #[serde(default)]
+    pub down_since: Option<u32>,
     edits: BTreeMap<u32, BlockEdit>,
 }
 
@@ -101,6 +110,8 @@ impl DayRecord {
             end,
             planned,
             downtime: Vec::new(),
+            finalised: false,
+            down_since: None,
             edits: BTreeMap::new(),
         }
     }
@@ -293,6 +304,7 @@ impl DayRecord {
         for start in self.uncategorised() {
             self.edits.entry(start).or_default().category = Some(LostCategory::SystemDown);
         }
+        self.finalised = true;
     }
 
     /// Totals for the OEE maths.

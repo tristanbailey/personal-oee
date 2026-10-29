@@ -353,3 +353,87 @@ fn live_record_without_a_stop_is_the_record() {
     let t = Tracker::start_day(hm(9, 0), vec![], Settings::default());
     assert_eq!(t.live_record(hm(10, 0)), t.record);
 }
+
+// D-11: finalising is remembered.
+
+#[test]
+fn finalise_sets_the_flag_even_with_nothing_to_categorise() {
+    let mut r = day();
+    assert!(!r.finalised);
+    r.finalise();
+    assert!(r.finalised);
+}
+
+#[test]
+fn finalise_defaults_uncategorised_and_sets_the_flag() {
+    let mut r = day();
+    r.add_downtime(hm(10, 0), hm(10, 25));
+    r.finalise();
+    assert!(r.finalised);
+    assert!(r.uncategorised().is_empty());
+}
+
+#[test]
+fn old_saved_records_load_as_not_finalised() {
+    let r = day();
+    let mut v: serde_json::Value = serde_json::to_value(&r).unwrap();
+    v.as_object_mut().unwrap().remove("finalised");
+    let back: DayRecord = serde_json::from_value(v).unwrap();
+    assert!(!back.finalised);
+}
+
+// D-12: rebuild the tracker from a saved record.
+
+fn saved(t: &Tracker) -> DayRecord {
+    serde_json::from_str(&serde_json::to_string(&t.record).unwrap()).unwrap()
+}
+
+#[test]
+fn resume_mid_downtime_keeps_the_original_start() {
+    let mut t = Tracker::start_day(hm(9, 0), vec![], Settings::default());
+    t.toggle_downtime(hm(10, 5));
+    let t2 = Tracker::resume(saved(&t), Settings::default(), hm(10, 20));
+    assert_eq!(t2.mode(), Mode::Downtime { since: hm(10, 5) });
+}
+
+#[test]
+fn resume_in_work_after_a_finished_stop() {
+    let mut t = Tracker::start_day(hm(9, 0), vec![], Settings::default());
+    t.toggle_downtime(hm(10, 5));
+    t.toggle_downtime(hm(10, 30));
+    let t2 = Tracker::resume(saved(&t), Settings::default(), hm(11, 0));
+    assert_eq!(t2.mode(), Mode::Work);
+    assert_eq!(t2.record.downtime.len(), 1);
+}
+
+#[test]
+fn resume_after_the_day_ended() {
+    let t = Tracker::start_day(hm(9, 0), vec![], Settings::default());
+    let t2 = Tracker::resume(saved(&t), Settings::default(), hm(18, 0));
+    assert_eq!(t2.mode(), Mode::Ended);
+}
+
+#[test]
+fn resume_closes_downtime_that_ran_past_the_end_or_into_a_planned_window() {
+    let mut t = Tracker::start_day(hm(9, 0), vec![lunch()], Settings::default());
+    t.toggle_downtime(hm(11, 0));
+    let t2 = Tracker::resume(saved(&t), Settings::default(), hm(12, 30));
+    assert!(matches!(t2.mode(), Mode::Planned { .. }));
+    assert_eq!(
+        t2.record.downtime,
+        vec![DowntimeEvent {
+            start: hm(11, 0),
+            end: hm(12, 0)
+        }]
+    );
+    // And the stop is no longer recorded as running.
+    let t3 = Tracker::resume(saved(&t2), Settings::default(), hm(13, 30));
+    assert_eq!(t3.mode(), Mode::Work);
+}
+
+#[test]
+fn resume_inside_a_planned_window() {
+    let t = Tracker::start_day(hm(9, 0), vec![lunch()], Settings::default());
+    let t2 = Tracker::resume(saved(&t), Settings::default(), hm(12, 10));
+    assert!(matches!(t2.mode(), Mode::Planned { until, .. } if until == hm(13, 0)));
+}

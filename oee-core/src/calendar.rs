@@ -1,8 +1,10 @@
 //! FR-030 to FR-035: weekly Planned Downtime calendar, repeating every 7 days.
 
+use serde::{Deserialize, Serialize};
+
 use crate::category::PlannedKind;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum Weekday {
     Mon,
     Tue,
@@ -14,7 +16,7 @@ pub enum Weekday {
 }
 
 /// A planned break or meeting, `start..end` in minutes since midnight.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PlannedWindow {
     pub start: u32,
     pub end: u32,
@@ -39,7 +41,7 @@ impl PlannedWindow {
 }
 
 /// Entries are entered by hand (FR-035) and repeat every week (FR-034).
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct WeeklyCalendar {
     entries: Vec<(Weekday, PlannedWindow)>,
 }

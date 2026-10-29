@@ -13,3 +13,5 @@ path = "src/main.rs"
 oee-core = { path = "../oee-core" }
 eframe = "0.29"
 chrono = { version = "0.4", default-features = false, features = ["clock"] }
+serde = "1"
+serde_json = "1"
