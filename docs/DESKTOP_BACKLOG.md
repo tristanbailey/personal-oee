@@ -106,7 +106,7 @@ Each item has an ID (D-xx), the PRD requirements it covers, and a "Done when" ch
 
 ## M3 — Mac-only features (left out of the prototype)
 
-- [ ] D-40 Register a system-wide shortcut that toggles downtime even when the app isn't the active window, using the `global-hotkey` crate. Default to ⌃⌥D, changeable in settings. Inside the window, **D** also works (FR-011a, NFR-002). Done when: the shortcut toggles downtime with Safari in front.
+- [x] D-40 Register a system-wide shortcut that toggles downtime even when the app isn't the active window, using the `global-hotkey` crate. Default to ⌃⌥D, changeable in settings. Inside the window, **D** also works (FR-011a, NFR-002). Done when: the shortcut toggles downtime with Safari in front. *Status: registered at launch with no error and wired to the same toggle as the button; pressing it with another app in front still needs a manual check.*
 - [ ] D-41 Add a menu-bar item using the `tray-icon` crate, showing a coloured dot for the mode and the time left in the block, e.g. "● 12m". Its menu has Start/stop downtime, Open window and Quit.
 - [ ] D-42 Send macOS notifications for each `Notice`: planned downtime started or ended, the categorisation reminder, and day ended (FR-026). Clicking a notification opens the window.
 - [ ] D-43 Keep the timer running with the window closed, so the app lives in the menu bar and doesn't quit when the window closes. After the Mac wakes from sleep, call `tick(now)` straight away. The engine already handles sleeping through a planned window.

@@ -4,6 +4,7 @@ mod andon;
 mod calendar_screen;
 mod editor;
 mod grid;
+mod hotkey;
 mod past_day;
 mod reminder;
 mod start;
@@ -52,6 +53,8 @@ struct App {
     /// Every saved day, for the over-capacity list. Refreshed every few seconds.
     /// A past day being viewed or edited, shown on the Today tab (D-39).
     past_day: Option<past_day::PastDay>,
+    /// The system-wide downtime shortcut, if it could be registered (D-40).
+    hotkey: Option<hotkey::Hotkey>,
     all_days_cache: Option<(std::time::Instant, Vec<(NaiveDate, oee_core::DayRecord)>)>,
 }
 
@@ -63,13 +66,30 @@ struct WeekCache {
 }
 
 impl App {
-    /// Open today's saved record if there is one (D-13, D-14).
-    fn new() -> Self {
-        Self::open(
+    /// Open today's saved record if there is one (D-13, D-14), and register
+    /// the system-wide shortcut (D-40).
+    fn new(ctx: egui::Context) -> Self {
+        let mut app = Self::open(
             store::Store::default_location(),
             Local::now().date_naive(),
             now_minutes(),
-        )
+        );
+        match hotkey::Hotkey::register(ctx, hotkey::default_hotkey()) {
+            Ok(h) => app.hotkey = Some(h),
+            Err(e) => app.push_message(format!(
+                "Couldn't register the {} shortcut: {e}",
+                hotkey::DEFAULT_LABEL
+            )),
+        }
+        app
+    }
+
+    /// FR-011: the downtime toggle, from the button, the shortcut or the D key.
+    fn toggle_downtime(&mut self, now: u32) {
+        let Some(t) = self.tracker.as_mut() else { return };
+        if let Some(stop) = t.toggle_downtime_report(now).stopped {
+            self.push_message(andon::stop_message(stop));
+        }
     }
 
     fn open(store: Option<store::Store>, today: NaiveDate, now: u32) -> Self {
@@ -92,6 +112,7 @@ impl App {
             week_cache: None,
             all_days_cache: None,
             past_day: None,
+            hotkey: None,
         };
         app.load_calendar();
         app.load_day(now);
@@ -265,6 +286,20 @@ impl eframe::App for App {
             self.note(notices);
         }
 
+        // D-40: the system-wide shortcut works on any tab; D works in the window.
+        let shortcut = self.hotkey.as_ref().is_some_and(|h| h.take_pressed());
+        let d_key = hotkey::d_key_toggles(
+            ctx.input(|i| i.key_pressed(egui::Key::D)),
+            ctx.input(|i| i.modifiers.any()),
+            ctx.wants_keyboard_input(),
+            self.editor.is_some()
+                || self.past_day.is_some()
+                || self.tab != tabs::Tab::Today,
+        );
+        if shortcut || d_key {
+            self.toggle_downtime(now);
+        }
+
         egui::TopBottomPanel::top("top").show(ctx, |ui| {
             ui.horizontal(|ui| {
                 ui.heading("Personal OEE");
@@ -379,22 +414,15 @@ impl eframe::App for App {
             ui.add_space(4.0);
         });
 
-        let mut stop_msg = None;
-        if let (Some(action), Some(t)) = (pressed, self.tracker.as_mut()) {
-            match action {
-                andon::ToggleAction::ToggleDowntime => {
-                    if let Some(stop) = t.toggle_downtime_report(now).stopped {
-                        stop_msg = Some(andon::stop_message(stop));
-                    }
-                }
-                andon::ToggleAction::Extend => {
+        match pressed {
+            Some(andon::ToggleAction::ToggleDowntime) => self.toggle_downtime(now),
+            Some(andon::ToggleAction::Extend) => {
+                if let Some(t) = self.tracker.as_mut() {
                     let end = t.record.end + 20;
                     t.extend_to(end, now);
                 }
             }
-        }
-        if let Some(m) = stop_msg {
-            self.push_message(m);
+            None => {}
         }
 
         if let Some(t) = &self.tracker {
@@ -524,7 +552,7 @@ fn main() -> eframe::Result<()> {
     eframe::run_native(
         "Personal OEE",
         options,
-        Box::new(|_| Ok(Box::new(App::new()))),
+        Box::new(|cc| Ok(Box::new(App::new(cc.egui_ctx.clone())))),
     )
 }
 

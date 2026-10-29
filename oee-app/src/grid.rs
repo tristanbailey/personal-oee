@@ -165,7 +165,13 @@ fn paint_cell(ui: &mut egui::Ui, size: Vec2, cell: &Cell) -> bool {
             .rect_stroke(rect, 6.0, Stroke::new(2.5_f32, ui.visuals().strong_text_color()));
     }
 
-    let ink = ui.visuals().text_color();
+    // The fills are dark, so filled cells always use light text; "not yet"
+    // cells are transparent and follow the theme.
+    let ink = if cell.fill == Fill::Future {
+        ui.visuals().text_color()
+    } else {
+        Color32::from_rgb(0xe6, 0xeb, 0xe9)
+    };
     ui.painter().text(
         rect.left_top() + Vec2::new(8.0, 6.0),
         egui::Align2::LEFT_TOP,
