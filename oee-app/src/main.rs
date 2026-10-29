@@ -4,6 +4,7 @@ mod andon;
 mod calendar_screen;
 mod editor;
 mod grid;
+mod lifecycle;
 mod hotkey;
 mod notify;
 mod past_day;
@@ -61,6 +62,10 @@ struct App {
     tray: Option<tray::Tray>,
     /// macOS notifications for the engine's notices (D-42).
     notifier: Option<notify::Notifier>,
+    /// Set by the menu-bar Quit, so closing the window really closes (D-43).
+    quitting: bool,
+    /// When the last frame ran, to notice the Mac waking from sleep.
+    last_frame: chrono::DateTime<Local>,
     all_days_cache: Option<(std::time::Instant, Vec<(NaiveDate, oee_core::DayRecord)>)>,
 }
 
@@ -126,6 +131,8 @@ impl App {
             hotkey: None,
             tray: None,
             notifier: None,
+            quitting: false,
+            last_frame: Local::now(),
         };
         app.load_calendar();
         app.load_day(now);
@@ -295,6 +302,21 @@ impl eframe::App for App {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         ctx.request_repaint_after(std::time::Duration::from_secs(1));
         let now = now_minutes();
+
+        // D-43: closing the window hides it; the app keeps running in the menu bar.
+        if lifecycle::hide_instead_of_closing(
+            ctx.input(|i| i.viewport().close_requested()),
+            self.quitting,
+        ) {
+            ctx.send_viewport_cmd(egui::ViewportCommand::CancelClose);
+            ctx.send_viewport_cmd(egui::ViewportCommand::Visible(false));
+        }
+        // After a sleep, the tick below catches the day up straight away.
+        let wall = Local::now();
+        if lifecycle::woke_from_sleep(self.last_frame, wall) {
+            self.push_message(format!("Back from sleep. Caught up to {}.", hhmm(now)));
+        }
+        self.last_frame = wall;
         self.roll_over_if_new_day(Local::now().date_naive(), now);
 
         if let Some(t) = self.tracker.as_mut() {
@@ -334,6 +356,7 @@ impl eframe::App for App {
             self.push_message(e);
         }
         if menu.quit {
+            self.quitting = true;
             ctx.send_viewport_cmd(egui::ViewportCommand::Close);
         }
         let tray_state = tray::tray_state(self.tracker.as_ref(), now);
@@ -587,7 +610,11 @@ impl eframe::App for App {
 
 fn main() -> eframe::Result<()> {
     let options = eframe::NativeOptions {
-        viewport: egui::ViewportBuilder::default().with_inner_size([820.0, 560.0]),
+        viewport: egui::ViewportBuilder::default()
+            .with_inner_size([820.0, 560.0])
+            .with_visible(!lifecycle::start_hidden(
+                std::env::var(lifecycle::HIDDEN_ENV).ok().as_deref(),
+            )),
         ..Default::default()
     };
     eframe::run_native(
