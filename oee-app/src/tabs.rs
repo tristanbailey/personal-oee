@@ -8,16 +8,18 @@ pub enum Tab {
     Today,
     Week,
     Calendar,
+    Settings,
 }
 
 impl Tab {
-    pub const ALL: [Tab; 3] = [Tab::Today, Tab::Week, Tab::Calendar];
+    pub const ALL: [Tab; 4] = [Tab::Today, Tab::Week, Tab::Calendar, Tab::Settings];
 
     pub fn label(self) -> &'static str {
         match self {
             Tab::Today => "Today",
             Tab::Week => "Week",
             Tab::Calendar => "Calendar",
+            Tab::Settings => "Settings",
         }
     }
 }

@@ -10,6 +10,7 @@ mod notify;
 mod past_day;
 mod reminder;
 mod start;
+mod settings;
 mod store;
 mod tray;
 mod tabs;
@@ -19,7 +20,7 @@ mod tiles;
 use chrono::{Local, NaiveDate, Timelike};
 use eframe::egui;
 use oee_core::{
-    day_result, Mode, Notice, Settings, Tracker,
+    day_result, Mode, Notice, Tracker,
 };
 
 fn now_minutes() -> u32 {
@@ -64,6 +65,9 @@ struct App {
     notifier: Option<notify::Notifier>,
     /// Set by the menu-bar Quit, so closing the window really closes (D-43).
     quitting: bool,
+    /// Day defaults and the shortcut (D-44), saved to `settings.json`.
+    settings: settings::AppSettings,
+    settings_form: settings::SettingsForm,
     /// When the last frame ran, to notice the Mac waking from sleep.
     last_frame: chrono::DateTime<Local>,
     all_days_cache: Option<(std::time::Instant, Vec<(NaiveDate, oee_core::DayRecord)>)>,
@@ -90,11 +94,15 @@ impl App {
             Ok(t) => app.tray = Some(t),
             Err(e) => app.push_message(format!("Couldn't add the menu-bar item: {e}")),
         }
-        match hotkey::Hotkey::register(ctx, hotkey::default_hotkey()) {
+        let shortcut = app.settings.shortcut;
+        let registered = shortcut
+            .to_hotkey()
+            .and_then(|k| hotkey::Hotkey::register(ctx, k));
+        match registered {
             Ok(h) => app.hotkey = Some(h),
             Err(e) => app.push_message(format!(
                 "Couldn't register the {} shortcut: {e}",
-                hotkey::DEFAULT_LABEL
+                shortcut.label()
             )),
         }
         app
@@ -132,11 +140,74 @@ impl App {
             tray: None,
             notifier: None,
             quitting: false,
+            settings: Default::default(),
+            settings_form: settings::SettingsForm::from_settings(&Default::default()),
             last_frame: Local::now(),
         };
+        app.load_settings();
         app.load_calendar();
         app.load_day(now);
         app
+    }
+
+    fn load_settings(&mut self) {
+        match self.store.as_ref().map(|s| s.load_settings()) {
+            Some(Ok(Some(settings))) => self.settings = settings,
+            Some(Err(e)) => self
+                .messages
+                .push(format!("Couldn't read the settings: {e}")),
+            _ => {}
+        }
+        self.settings_form = settings::SettingsForm::from_settings(&self.settings);
+    }
+
+    /// D-44: check the form, save it, and re-register the shortcut if it changed.
+    fn apply_settings(&mut self) {
+        let new = match self.settings_form.parse() {
+            Ok(new) => new,
+            Err(e) => {
+                self.settings_form.error = Some(e);
+                self.settings_form.saved = false;
+                return;
+            }
+        };
+        if let Some(store) = &self.store {
+            if let Err(e) = store.save_settings(&new) {
+                self.settings_form.error = Some(format!("Couldn't save the settings: {e}"));
+                return;
+            }
+        }
+        if new.shortcut != self.settings.shortcut {
+            let result = new
+                .shortcut
+                .to_hotkey()
+                .and_then(|k| match self.hotkey.as_mut() {
+                    Some(h) => h.change(k),
+                    None => Ok(()),
+                });
+            if let Err(e) = result {
+                // The old shortcut stays; the rest of the settings are saved.
+                self.push_message(format!(
+                    "Couldn't switch the shortcut to {}: {e}",
+                    new.shortcut.label()
+                ));
+                let kept = settings::AppSettings {
+                    shortcut: self.settings.shortcut,
+                    ..new
+                };
+                self.settings = kept;
+                if let Some(store) = &self.store {
+                    let _ = store.save_settings(&kept);
+                }
+                self.settings_form = settings::SettingsForm::from_settings(&kept);
+                self.settings_form.error =
+                    Some(format!("The shortcut {} couldn't be registered, so the old one stays.", new.shortcut.label()));
+                return;
+            }
+        }
+        self.settings = new;
+        self.settings_form.error = None;
+        self.settings_form.saved = true;
     }
 
     fn load_calendar(&mut self) {
@@ -238,7 +309,7 @@ impl App {
         match self.store.as_ref().map(|s| s.load_day(self.today)) {
             Some(Ok(Some(record))) => {
                 self.last_saved = serde_json::to_string(&record).unwrap_or_default();
-                self.tracker = Some(Tracker::resume(record, Settings::default(), now));
+                self.tracker = Some(Tracker::resume(record, self.settings.core, now));
             }
             Some(Err(e)) => self
                 .messages
@@ -302,6 +373,7 @@ impl eframe::App for App {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         ctx.request_repaint_after(std::time::Duration::from_secs(1));
         let now = now_minutes();
+        let core = self.settings.core;
 
         // D-43: closing the window hides it; the app keeps running in the menu bar.
         if lifecycle::hide_instead_of_closing(
@@ -391,12 +463,12 @@ impl eframe::App for App {
             let (week_view, review) = if self.tab == tabs::Tab::Week {
                 let (today, now_min) = (self.today, now);
                 let days = self.week_days();
-                let view = week_screen::WeekView::build(days, today, now_min, &Settings::default());
+                let view = week_screen::WeekView::build(days, today, now_min, &core);
                 let review = week_screen::over_capacity_rows(
                     self.all_days(),
                     today,
                     now_min,
-                    &Settings::default(),
+                    &core,
                 );
                 (Some(view), review)
             } else {
@@ -405,6 +477,7 @@ impl eframe::App for App {
             let monday = self.week_monday;
             let mut go_to = None;
             let mut open_date = None;
+            let mut save_settings = false;
             egui::CentralPanel::default().show(ctx, |ui| match self.tab {
                 tabs::Tab::Week => {
                     let working = week_view.as_ref().map_or(0, |v| v.working_days);
@@ -426,10 +499,14 @@ impl eframe::App for App {
                     ui,
                     &mut self.calendar,
                     &mut self.add_form,
-                    Settings::default().default_start,
+                    core.default_start,
                 ),
+                tabs::Tab::Settings => save_settings = settings::show(ui, &mut self.settings_form),
                 _ => {}
             });
+            if save_settings {
+                self.apply_settings();
+            }
             if let Some(m) = go_to {
                 self.week_monday = m;
             }
@@ -444,7 +521,7 @@ impl eframe::App for App {
         if let Some(day) = self.past_day.as_mut() {
             let mut back = false;
             egui::CentralPanel::default().show(ctx, |ui| {
-                back = past_day::show(ctx, ui, day, &Settings::default());
+                back = past_day::show(ctx, ui, day, &core);
             });
             if back {
                 self.past_day = None;
@@ -536,7 +613,7 @@ impl eframe::App for App {
                     match start::validate_start(input, now) {
                         Ok(at) => {
                             self.tracker =
-                                Some(Tracker::start_day(at, planned, Settings::default()));
+                                Some(Tracker::start_day(at, planned, core));
                             self.start_input = None;
                             self.start_error = None;
                         }
@@ -627,7 +704,7 @@ fn main() -> eframe::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use oee_core::hm;
+    use oee_core::{hm, Settings};
 
     fn date(d: u32) -> NaiveDate {
         NaiveDate::from_ymd_opt(2026, 10, d).unwrap()
@@ -694,6 +771,37 @@ mod tests {
         again.save_calendar_if_changed();
         let third = App::open(Some(store::Store::new(&dir)), date(29), hm(9, 0));
         assert!(third.calendar.windows_for(Weekday::Thu).is_empty());
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn saved_settings_apply_to_new_days_and_survive_a_restart() {
+        let dir = temp_dir("settings");
+        let mut app = App::open(Some(store::Store::new(&dir)), date(29), hm(9, 0));
+        app.settings_form.target = "25".into();
+        app.settings_form.end = "17:00".into();
+        app.apply_settings();
+        assert_eq!(app.settings_form.error, None);
+        assert!(app.settings_form.saved);
+        assert_eq!(app.settings.core.base_target, 25);
+
+        let again = App::open(Some(store::Store::new(&dir)), date(29), hm(9, 0));
+        assert_eq!(again.settings.core.base_target, 25);
+        assert_eq!(again.settings.core.default_end, hm(17, 0));
+        assert_eq!(again.settings_form.target, "25");
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn invalid_settings_change_and_save_nothing() {
+        let dir = temp_dir("badsettings");
+        let mut app = App::open(Some(store::Store::new(&dir)), date(29), hm(9, 0));
+        app.settings_form.target = "0".into();
+        app.apply_settings();
+        assert!(app.settings_form.error.as_deref().unwrap().contains("daily target"));
+        assert!(!app.settings_form.saved);
+        assert_eq!(app.settings, Default::default());
+        assert_eq!(store::Store::new(&dir).load_settings().unwrap(), None);
         let _ = std::fs::remove_dir_all(dir);
     }
 

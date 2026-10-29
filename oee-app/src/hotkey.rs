@@ -3,23 +3,19 @@
 //! ⌃⌥D toggles downtime from any app. The OS reports the key on its own thread,
 //! so the press is parked in a flag and the window is woken to read it.
 
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::sync::Arc;
 
 use eframe::egui;
-use global_hotkey::hotkey::{Code, HotKey, Modifiers};
+use global_hotkey::hotkey::HotKey;
 use global_hotkey::{GlobalHotKeyEvent, GlobalHotKeyManager, HotKeyState};
-
-/// The default shortcut: Control + Option + D. Changeable in settings (D-44).
-pub fn default_hotkey() -> HotKey {
-    HotKey::new(Some(Modifiers::CONTROL | Modifiers::ALT), Code::KeyD)
-}
-
-pub const DEFAULT_LABEL: &str = "⌃⌥D";
 
 /// Keeps the registration alive. Dropping it releases the shortcut.
 pub struct Hotkey {
-    _manager: GlobalHotKeyManager,
+    manager: GlobalHotKeyManager,
+    current: HotKey,
+    /// The id the event handler listens for, so the key can change.
+    id: Arc<AtomicU32>,
     pressed: Arc<AtomicBool>,
 }
 
@@ -32,18 +28,34 @@ impl Hotkey {
         manager.register(hotkey).map_err(|e| format!("{e}"))?;
         let pressed = Arc::new(AtomicBool::new(false));
         let flag = pressed.clone();
-        let id = hotkey.id();
+        let id = Arc::new(AtomicU32::new(hotkey.id()));
+        let listen = id.clone();
         GlobalHotKeyEvent::set_event_handler(Some(move |event: GlobalHotKeyEvent| {
-            if event.id == id && event.state == HotKeyState::Pressed {
+            if event.id == listen.load(Ordering::SeqCst) && event.state == HotKeyState::Pressed {
                 flag.store(true, Ordering::SeqCst);
                 // Wake the window even when it's in the background.
                 ctx.request_repaint();
             }
         }));
         Ok(Hotkey {
-            _manager: manager,
+            manager,
+            current: hotkey,
+            id,
             pressed,
         })
+    }
+
+    /// Switch to a new shortcut (D-44). The old one stays if the new one
+    /// can't be registered, for example because another app has it.
+    pub fn change(&mut self, hotkey: HotKey) -> Result<(), String> {
+        if hotkey == self.current {
+            return Ok(());
+        }
+        self.manager.register(hotkey).map_err(|e| format!("{e}"))?;
+        let _ = self.manager.unregister(self.current);
+        self.id.store(hotkey.id(), Ordering::SeqCst);
+        self.current = hotkey;
+        Ok(())
     }
 
     /// True once per press.
@@ -61,13 +73,6 @@ pub fn d_key_toggles(d_pressed: bool, any_modifier: bool, typing: bool, dialog_o
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn the_default_is_control_option_d() {
-        let key = default_hotkey();
-        assert_eq!(key, HotKey::new(Some(Modifiers::CONTROL | Modifiers::ALT), Code::KeyD));
-        assert_eq!(DEFAULT_LABEL, "⌃⌥D");
-    }
 
     #[test]
     fn d_in_the_window_only_works_when_nothing_else_wants_the_key() {

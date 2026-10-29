@@ -95,6 +95,11 @@ pub struct DayRecord {
     /// Kept in step with the mode by the tracker.
     #[serde(default)]
     pub down_since: Option<u32>,
+    /// The settings this day was started with. Its target is scored against
+    /// these, so changing the settings later doesn't rewrite past days. Days
+    /// saved without it use whatever settings are passed in.
+    #[serde(default)]
+    pub scored_with: Option<Settings>,
     edits: BTreeMap<u32, BlockEdit>,
 }
 
@@ -112,6 +117,7 @@ impl DayRecord {
             downtime: Vec::new(),
             finalised: false,
             down_since: None,
+            scored_with: None,
             edits: BTreeMap::new(),
         }
     }
@@ -316,6 +322,7 @@ impl DayRecord {
     /// minutes and blocks are clipped to `until`. The target stays the full
     /// day's target, so Efficiency reads as progress towards it.
     pub fn inputs_until(&self, settings: &Settings, until: u32) -> DayInputs {
+        let settings = self.scored_with.as_ref().unwrap_or(settings);
         let mut losses = LossMinutes::default();
         let mut work_points = 0;
         let mut rework_points = 0;

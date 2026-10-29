@@ -68,8 +68,10 @@ impl Tracker {
     /// the default finish time. Planned windows come from the weekly calendar.
     pub fn start_day(now: u32, planned: Vec<PlannedWindow>, settings: Settings) -> Self {
         let end = settings.default_end.max(now + crate::rules::BLOCK_MINUTES);
+        let mut record = DayRecord::new(now, end, planned);
+        record.scored_with = Some(settings);
         Self {
-            record: DayRecord::new(now, end, planned),
+            record,
             settings,
             mode: Mode::Work,
         }

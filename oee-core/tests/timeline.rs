@@ -539,3 +539,45 @@ fn a_day_ended_early_can_be_extended_again() {
     assert_eq!(t.mode(), Mode::Work);
     assert_eq!(t.record.end, hm(17, 20));
 }
+
+// D-44: a day keeps the settings it started with.
+
+#[test]
+fn a_started_day_is_scored_against_its_own_settings() {
+    let mut t = Tracker::start_day(hm(9, 0), vec![], Settings::default());
+    t.tick(hm(17, 40));
+    let changed = Settings {
+        base_target: 25,
+        default_end: hm(17, 0),
+        ..Settings::default()
+    };
+    assert_eq!(t.record.scored_with, Some(Settings::default()));
+    // The record's target stays 20 whatever settings are passed in later.
+    assert_eq!(t.record.inputs(&changed).target_points, 20);
+}
+
+#[test]
+fn older_records_without_a_snapshot_use_the_settings_passed_in() {
+    let r = day();
+    assert_eq!(r.scored_with, None);
+    let changed = Settings {
+        base_target: 25,
+        ..Settings::default()
+    };
+    assert_eq!(r.inputs(&changed).target_points, 25);
+    assert_eq!(r.inputs(&Settings::default()).target_points, 20);
+}
+
+#[test]
+fn the_snapshot_survives_saving_and_resuming() {
+    let t = Tracker::start_day(hm(9, 0), vec![], Settings::default());
+    let json = serde_json::to_string(&t.record).unwrap();
+    let back: DayRecord = serde_json::from_str(&json).unwrap();
+    assert_eq!(back.scored_with, Some(Settings::default()));
+    let changed = Settings {
+        base_target: 30,
+        ..Settings::default()
+    };
+    let resumed = Tracker::resume(back, changed, hm(10, 0));
+    assert_eq!(resumed.inputs_at(hm(10, 0)).target_points, 20);
+}

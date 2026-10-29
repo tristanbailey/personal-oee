@@ -11,6 +11,7 @@ use std::path::{Path, PathBuf};
 use chrono::NaiveDate;
 use oee_core::{DayRecord, WeeklyCalendar};
 
+use crate::settings::AppSettings;
 use crate::tabs::UiState;
 use serde::{de::DeserializeOwned, Serialize};
 
@@ -92,6 +93,14 @@ impl Store {
 
     pub fn save_ui(&self, ui: &UiState) -> io::Result<()> {
         write_json(&self.root.join("ui.json"), ui)
+    }
+
+    pub fn load_settings(&self) -> io::Result<Option<AppSettings>> {
+        read_json(&self.root.join("settings.json"))
+    }
+
+    pub fn save_settings(&self, settings: &AppSettings) -> io::Result<()> {
+        write_json(&self.root.join("settings.json"), settings)
     }
 
     pub fn save_calendar(&self, calendar: &WeeklyCalendar) -> io::Result<()> {
@@ -218,6 +227,18 @@ mod tests {
         fs::write(dir.join("days/2026-10-12.json"), b"garbage").unwrap();
         let all: Vec<_> = s.load_all().into_iter().map(|(d, _)| d).collect();
         assert_eq!(all, vec![date(5), date(29)]);
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn settings_round_trip_and_a_missing_file_is_none() {
+        let (s, dir) = temp_store("settings");
+        assert_eq!(s.load_settings().unwrap(), None);
+        let mut custom = AppSettings::default();
+        custom.core.base_target = 18;
+        custom.shortcut.key = 'J';
+        s.save_settings(&custom).unwrap();
+        assert_eq!(s.load_settings().unwrap(), Some(custom));
         let _ = fs::remove_dir_all(dir);
     }
 
