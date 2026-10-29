@@ -1,12 +1,18 @@
 #!/bin/sh
-# Build dist/PersonalOEE.app from the release binary (ad-hoc signed).
+# Build dist/PersonalOEE.app (ad-hoc signed). Release by default; pass "debug"
+# for a debug build, which includes practice mode (D-45).
 set -e
 cd "$(dirname "$0")/.."
-cargo build --release -p oee-app
+PROFILE="${1:-release}"
+if [ "$PROFILE" = "debug" ]; then
+  cargo build -p oee-app
+else
+  cargo build --release -p oee-app
+fi
 APP=dist/PersonalOEE.app
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS"
-cp target/release/PersonalOEE "$APP/Contents/MacOS/"
+cp "target/$PROFILE/PersonalOEE" "$APP/Contents/MacOS/"
 cat > "$APP/Contents/Info.plist" <<'PLIST'
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">

@@ -114,7 +114,7 @@ Each item has an ID (D-xx), the PRD requirements it covers, and a "Done when" ch
 
 ## Optional
 
-- [ ] D-45 Practice mode, a debug-only fake clock with +1 / +5 / +20 / +60 min buttons, matching the prototype. Useful for manual testing. Hidden in release builds.
+- [x] D-45 Practice mode, a debug-only fake clock with +1 / +5 / +20 / +60 min buttons, matching the prototype. Useful for manual testing. Hidden in release builds. *Status: buttons seen in a debug build; the release binary contains none of the practice code. Build a debug bundle with `scripts/bundle.sh debug`. Clicking the buttons still needs a manual check.*
 - [ ] D-46 Bring the prototype's colours into the egui theme for light and dark mode, using the tokens below.
 
 ### Design tokens from the prototype

@@ -8,6 +8,7 @@ mod lifecycle;
 mod hotkey;
 mod notify;
 mod past_day;
+mod practice;
 mod reminder;
 mod start;
 mod settings;
@@ -65,6 +66,8 @@ struct App {
     notifier: Option<notify::Notifier>,
     /// Set by the menu-bar Quit, so closing the window really closes (D-43).
     quitting: bool,
+    /// The practice-mode fake clock; stays at 0 in release builds (D-45).
+    practice: practice::Practice,
     /// Day defaults and the shortcut (D-44), saved to `settings.json`.
     settings: settings::AppSettings,
     settings_form: settings::SettingsForm,
@@ -140,6 +143,7 @@ impl App {
             tray: None,
             notifier: None,
             quitting: false,
+            practice: Default::default(),
             settings: Default::default(),
             settings_form: settings::SettingsForm::from_settings(&Default::default()),
             last_frame: Local::now(),
@@ -372,7 +376,7 @@ impl App {
 impl eframe::App for App {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         ctx.request_repaint_after(std::time::Duration::from_secs(1));
-        let now = now_minutes();
+        let now = self.practice.apply(now_minutes());
         let core = self.settings.core;
 
         // D-43: closing the window hides it; the app keeps running in the menu bar.
@@ -450,6 +454,9 @@ impl eframe::App for App {
                         }
                     }
                 }
+                // D-45: practice buttons, debug builds only.
+                #[cfg(debug_assertions)]
+                practice::show(ui, &mut self.practice, now);
             });
         });
         if self.tab != self.last_tab {
