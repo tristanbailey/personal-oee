@@ -102,7 +102,7 @@ Each item has an ID (D-xx), the PRD requirements it covers, and a "Done when" ch
 
 ### Past day view
 
-- [ ] D-39 Open any past date in the Today layout without the andon panel: a "← Back to today" button, a title like "Tue 20 Oct", a status pill, the tiles, and the shift log with the same block editor. If uncategorised blocks are left, show a banner with Finish day. Edits save to that day's file. A date with no record shows "Nothing logged on Tue 20 Oct. It counts as a holiday."
+- [x] D-39 Open any past date in the Today layout without the andon panel: a "← Back to today" button, a title like "Tue 20 Oct", a status pill, the tiles, and the shift log with the same block editor. If uncategorised blocks are left, show a banner with Finish day. Edits save to that day's file. A date with no record shows "Nothing logged on Tue 20 Oct. It counts as a holiday."
 
 ## M3 — Mac-only features (left out of the prototype)
 

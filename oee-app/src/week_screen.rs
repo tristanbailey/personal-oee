@@ -89,6 +89,26 @@ impl Pill {
         }
     }
 
+    /// The pill for a day's result (FR-045, FR-045a, FR-048).
+    pub fn of(result: &oee_core::DayResult) -> Pill {
+        match result.status {
+            DayStatus::Holiday => Pill::Holiday,
+            DayStatus::ZeroWork => Pill::ZeroDay,
+            DayStatus::Worked if result.metrics.over_capacity => Pill::OverCapacity,
+            DayStatus::Worked => Pill::Worked,
+        }
+    }
+
+    pub fn show(self, ui: &mut egui::Ui) {
+        let (bg, ink) = self.colours();
+        ui.label(
+            RichText::new(format!(" {} ", self.label()))
+                .small()
+                .color(ink)
+                .background_color(bg),
+        );
+    }
+
     fn colours(self) -> (Color32, Color32) {
         // (background, text) from the prototype's dark-mode tokens.
         match self {
@@ -256,12 +276,14 @@ pub fn over_capacity_rows(
     rows
 }
 
-pub fn show_review(ui: &mut egui::Ui, rows: &[ReviewRow]) {
+/// Draw the review list. Returns the date of a Review button that was pressed.
+pub fn show_review(ui: &mut egui::Ui, rows: &[ReviewRow]) -> Option<NaiveDate> {
+    let mut clicked = None;
     ui.label(RichText::new("Over-capacity days to review").strong());
     ui.add_space(4.0);
     if rows.is_empty() {
         ui.label(RichText::new(NO_OVER_CAPACITY).weak());
-        return;
+        return None;
     }
     egui::Grid::new("over_capacity")
         .striped(true)
@@ -276,12 +298,13 @@ pub fn show_review(ui: &mut egui::Ui, rows: &[ReviewRow]) {
                 ui.label(RichText::new(&row.label).monospace());
                 ui.label(RichText::new(&row.points).monospace());
                 ui.label(RichText::new(&row.efficiency).monospace());
-                // Opening a day arrives with the past-day view (D-39).
-                ui.add_enabled(false, egui::Button::new("Review →"))
-                    .on_disabled_hover_text("Opens the day once the past-day view is built (D-39)");
+                if ui.button("Review →").clicked() {
+                    clicked = Some(row.date);
+                }
                 ui.end_row();
             }
         });
+    clicked
 }
 
 /// Everything the Week tab shows below the navigation.
@@ -311,12 +334,7 @@ impl WeekView {
                     .as_ref()
                     .map(|r| day_inputs(r, *date == today, now, settings));
                 let result = day_result(inputs.as_ref());
-                let pill = match result.status {
-                    DayStatus::Holiday => Pill::Holiday,
-                    DayStatus::ZeroWork => Pill::ZeroDay,
-                    DayStatus::Worked if result.metrics.over_capacity => Pill::OverCapacity,
-                    DayStatus::Worked => Pill::Worked,
-                };
+                let pill = Pill::of(&result);
                 let [a, e, q, o] = row_values(&result.metrics);
                 TableRow {
                     date: Some(*date),
@@ -353,7 +371,9 @@ impl WeekView {
     }
 }
 
-pub fn show_table(ui: &mut egui::Ui, view: &WeekView) {
+/// Draw the table. Returns the date of a row that was clicked (D-36, D-39).
+pub fn show_table(ui: &mut egui::Ui, view: &WeekView) -> Option<NaiveDate> {
+    let mut clicked = None;
     egui::Grid::new("week_table")
         .striped(true)
         .num_columns(7)
@@ -369,12 +389,18 @@ pub fn show_table(ui: &mut egui::Ui, view: &WeekView) {
                     let t = RichText::new(s).monospace();
                     if total { t.strong() } else { t }
                 };
-                ui.label(text(&row.label));
+                let label = ui
+                    .add(egui::Label::new(text(&row.label)).sense(egui::Sense::click()))
+                    .on_hover_cursor(if total {
+                        egui::CursorIcon::Default
+                    } else {
+                        egui::CursorIcon::PointingHand
+                    });
+                if label.clicked() && row.date.is_some() {
+                    clicked = row.date;
+                }
                 match row.pill {
-                    Some(p) => {
-                        let (bg, ink) = p.colours();
-                        ui.label(RichText::new(format!(" {} ", p.label())).small().color(ink).background_color(bg));
-                    }
+                    Some(p) => p.show(ui),
                     None => {
                         ui.label("");
                     }
@@ -385,6 +411,7 @@ pub fn show_table(ui: &mut egui::Ui, view: &WeekView) {
                 ui.end_row();
             }
         });
+    clicked
 }
 
 /// Draw the navigation. Returns the week to show if a button was pressed.

@@ -10,7 +10,7 @@ pub struct CategoriseBanner {
     pub finish_button: bool,
 }
 
-fn blocks_need(n: usize) -> String {
+pub fn blocks_need(n: usize) -> String {
     if n == 1 {
         "1 lost block needs a category.".into()
     } else {

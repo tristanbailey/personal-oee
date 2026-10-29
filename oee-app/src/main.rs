@@ -4,6 +4,7 @@ mod andon;
 mod calendar_screen;
 mod editor;
 mod grid;
+mod past_day;
 mod reminder;
 mod start;
 mod store;
@@ -49,6 +50,8 @@ struct App {
     week_monday: NaiveDate,
     week_cache: Option<WeekCache>,
     /// Every saved day, for the over-capacity list. Refreshed every few seconds.
+    /// A past day being viewed or edited, shown on the Today tab (D-39).
+    past_day: Option<past_day::PastDay>,
     all_days_cache: Option<(std::time::Instant, Vec<(NaiveDate, oee_core::DayRecord)>)>,
 }
 
@@ -88,6 +91,7 @@ impl App {
             week_monday: week_screen::week_start(today),
             week_cache: None,
             all_days_cache: None,
+            past_day: None,
         };
         app.load_calendar();
         app.load_day(now);
@@ -135,6 +139,40 @@ impl App {
             self.all_days_cache = Some((std::time::Instant::now(), days));
         }
         &self.all_days_cache.as_ref().expect("just filled").1
+    }
+
+    /// D-39: open a date in the Today layout. Today itself just shows Today.
+    fn open_day(&mut self, date: NaiveDate) {
+        self.tab = tabs::Tab::Today;
+        if date == self.today {
+            self.past_day = None;
+            return;
+        }
+        let record = match self.store.as_ref().map(|s| s.load_day(date)) {
+            Some(Ok(record)) => record,
+            Some(Err(e)) => {
+                self.push_message(format!("Couldn't read that day: {e}"));
+                None
+            }
+            None => None,
+        };
+        self.past_day = Some(past_day::PastDay::new(date, record));
+    }
+
+    /// Save edits made to the past day being viewed.
+    fn save_past_day_if_changed(&mut self) {
+        let (Some(store), Some(pd)) = (&self.store, self.past_day.as_mut()) else {
+            return;
+        };
+        let Some(json) = pd.pending_save() else { return };
+        let Some(record) = &pd.record else { return };
+        match store.save_day(pd.date, record) {
+            Ok(()) => pd.last_saved = json,
+            Err(e) => {
+                let msg = format!("Couldn't save: {e}");
+                self.push_message(msg);
+            }
+        }
     }
 
     /// Write the calendar if it changed since the last write.
@@ -235,6 +273,10 @@ impl eframe::App for App {
                 for tab in tabs::Tab::ALL {
                     if ui.selectable_label(self.tab == tab, tab.label()).clicked() {
                         self.tab = tab;
+                        if tab == tabs::Tab::Today {
+                            // Clicking Today always returns to today (D-39).
+                            self.past_day = None;
+                        }
                     }
                 }
             });
@@ -263,6 +305,7 @@ impl eframe::App for App {
             };
             let monday = self.week_monday;
             let mut go_to = None;
+            let mut open_date = None;
             egui::CentralPanel::default().show(ctx, |ui| match self.tab {
                 tabs::Tab::Week => {
                     let working = week_view.as_ref().map_or(0, |v| v.working_days);
@@ -272,11 +315,11 @@ impl eframe::App for App {
                             ui.add_space(6.0);
                             tiles::show(ui, &v.tiles);
                             ui.add_space(10.0);
-                            week_screen::show_table(ui, v);
+                            open_date = week_screen::show_table(ui, v).or(open_date);
                             ui.add_space(10.0);
                             week_screen::show_loss_bars(ui, &v.losses);
                             ui.add_space(10.0);
-                            week_screen::show_review(ui, &review);
+                            open_date = week_screen::show_review(ui, &review).or(open_date);
                         });
                     }
                 }
@@ -291,6 +334,23 @@ impl eframe::App for App {
             if let Some(m) = go_to {
                 self.week_monday = m;
             }
+            if let Some(date) = open_date {
+                self.open_day(date);
+            }
+            self.save_if_changed();
+            self.save_calendar_if_changed();
+            return;
+        }
+
+        if let Some(day) = self.past_day.as_mut() {
+            let mut back = false;
+            egui::CentralPanel::default().show(ctx, |ui| {
+                back = past_day::show(ctx, ui, day, &Settings::default());
+            });
+            if back {
+                self.past_day = None;
+            }
+            self.save_past_day_if_changed();
             self.save_if_changed();
             self.save_calendar_if_changed();
             return;
