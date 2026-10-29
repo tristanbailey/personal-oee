@@ -9,6 +9,7 @@ mod past_day;
 mod reminder;
 mod start;
 mod store;
+mod tray;
 mod tabs;
 mod week_screen;
 mod tiles;
@@ -55,6 +56,8 @@ struct App {
     past_day: Option<past_day::PastDay>,
     /// The system-wide downtime shortcut, if it could be registered (D-40).
     hotkey: Option<hotkey::Hotkey>,
+    /// The menu-bar item (D-41).
+    tray: Option<tray::Tray>,
     all_days_cache: Option<(std::time::Instant, Vec<(NaiveDate, oee_core::DayRecord)>)>,
 }
 
@@ -74,6 +77,10 @@ impl App {
             Local::now().date_naive(),
             now_minutes(),
         );
+        match tray::Tray::new(ctx.clone()) {
+            Ok(t) => app.tray = Some(t),
+            Err(e) => app.push_message(format!("Couldn't add the menu-bar item: {e}")),
+        }
         match hotkey::Hotkey::register(ctx, hotkey::default_hotkey()) {
             Ok(h) => app.hotkey = Some(h),
             Err(e) => app.push_message(format!(
@@ -113,6 +120,7 @@ impl App {
             all_days_cache: None,
             past_day: None,
             hotkey: None,
+            tray: None,
         };
         app.load_calendar();
         app.load_day(now);
@@ -296,8 +304,24 @@ impl eframe::App for App {
                 || self.past_day.is_some()
                 || self.tab != tabs::Tab::Today,
         );
-        if shortcut || d_key {
+        let menu = self
+            .tray
+            .as_ref()
+            .map(|t| t.take_actions())
+            .unwrap_or_default();
+        if shortcut || d_key || menu.toggle {
             self.toggle_downtime(now);
+        }
+        if menu.open {
+            ctx.send_viewport_cmd(egui::ViewportCommand::Visible(true));
+            ctx.send_viewport_cmd(egui::ViewportCommand::Focus);
+        }
+        if menu.quit {
+            ctx.send_viewport_cmd(egui::ViewportCommand::Close);
+        }
+        let tray_state = tray::tray_state(self.tracker.as_ref(), now);
+        if let Some(tray) = self.tray.as_mut() {
+            tray.update(tray_state);
         }
 
         egui::TopBottomPanel::top("top").show(ctx, |ui| {
