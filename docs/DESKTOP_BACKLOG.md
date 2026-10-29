@@ -116,6 +116,7 @@ Each item has an ID (D-xx), the PRD requirements it covers, and a "Done when" ch
 
 - [x] D-45 Practice mode, a debug-only fake clock with +1 / +5 / +20 / +60 min buttons, matching the prototype. Useful for manual testing. Hidden in release builds. *Status: buttons seen in a debug build; the release binary contains none of the practice code. Build a debug bundle with `scripts/bundle.sh debug`. Clicking the buttons still needs a manual check.*
 - [x] D-46 Bring the prototype's colours into the egui theme for light and dark mode, using the tokens below. *Status: done for colours, in light and dark (follows the system; `PERSONAL_OEE_THEME=light|dark` forces one). The Barlow and JetBrains Mono fonts are not bundled yet.*
+- [ ] D-47 Make it obvious how to reopen the window after closing it. Add an "Open Personal OEE" item to the app's own menu in the macOS menu bar (and a Window menu entry), and reopen the window when the Dock icon is clicked. *From manual testing of D-43: the window closed and the app kept running, but the only way back was the small menu-bar item.*
 
 ### Design tokens from the prototype
 
