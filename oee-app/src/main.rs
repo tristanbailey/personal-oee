@@ -5,6 +5,7 @@ mod calendar_screen;
 mod editor;
 mod grid;
 mod hotkey;
+mod notify;
 mod past_day;
 mod reminder;
 mod start;
@@ -58,6 +59,8 @@ struct App {
     hotkey: Option<hotkey::Hotkey>,
     /// The menu-bar item (D-41).
     tray: Option<tray::Tray>,
+    /// macOS notifications for the engine's notices (D-42).
+    notifier: Option<notify::Notifier>,
     all_days_cache: Option<(std::time::Instant, Vec<(NaiveDate, oee_core::DayRecord)>)>,
 }
 
@@ -77,6 +80,7 @@ impl App {
             Local::now().date_naive(),
             now_minutes(),
         );
+        app.notifier = Some(notify::Notifier::new(ctx.clone()));
         match tray::Tray::new(ctx.clone()) {
             Ok(t) => app.tray = Some(t),
             Err(e) => app.push_message(format!("Couldn't add the menu-bar item: {e}")),
@@ -121,6 +125,7 @@ impl App {
             past_day: None,
             hotkey: None,
             tray: None,
+            notifier: None,
         };
         app.load_calendar();
         app.load_day(now);
@@ -271,6 +276,9 @@ impl App {
 
     fn note(&mut self, notices: Vec<Notice>) {
         for n in notices {
+            if let Some(notifier) = &self.notifier {
+                notifier.send(&n);
+            }
             self.push_message(match n {
                 Notice::PlannedStarted { label, .. } => format!("Planned downtime started: {label}"),
                 Notice::PlannedEnded => "Planned downtime ended, back to Work".into(),
@@ -312,9 +320,18 @@ impl eframe::App for App {
         if shortcut || d_key || menu.toggle {
             self.toggle_downtime(now);
         }
-        if menu.open {
+        let clicked = self.notifier.as_ref().is_some_and(|n| n.take_open());
+        if menu.open || clicked {
             ctx.send_viewport_cmd(egui::ViewportCommand::Visible(true));
             ctx.send_viewport_cmd(egui::ViewportCommand::Focus);
+        }
+        let errors = self
+            .notifier
+            .as_ref()
+            .map(|n| n.take_errors())
+            .unwrap_or_default();
+        for e in errors {
+            self.push_message(e);
         }
         if menu.quit {
             ctx.send_viewport_cmd(egui::ViewportCommand::Close);
