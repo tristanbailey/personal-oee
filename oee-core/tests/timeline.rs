@@ -581,3 +581,85 @@ fn the_snapshot_survives_saving_and_resuming() {
     let resumed = Tracker::resume(back, changed, hm(10, 0));
     assert_eq!(resumed.inputs_at(hm(10, 0)).target_points, 20);
 }
+
+#[test]
+fn starting_mid_block_counts_that_block_from_its_grid_start() {
+    let t = Tracker::start_day(hm(9, 30), vec![], Settings::default());
+    assert_eq!((t.record.start, t.record.end), (hm(9, 0), hm(17, 40)));
+    let blocks = t.record.blocks();
+    // 09:00 was missed; the 09:20 block is Work as though started on time.
+    assert_eq!(blocks[0].kind, BlockKind::Lost { category: None });
+    assert_eq!(blocks[1].kind, BlockKind::Work { rework: false });
+    assert_eq!(blocks[1].start, hm(9, 20));
+}
+
+#[test]
+fn a_late_start_keeps_the_normal_hours_with_earlier_blocks_as_downtime() {
+    let t = Tracker::start_day(hm(10, 0), vec![], Settings::default());
+    assert_eq!((t.record.start, t.record.end), (hm(9, 0), hm(17, 40)));
+    let lost = t
+        .record
+        .blocks()
+        .iter()
+        .filter(|b| matches!(b.kind, BlockKind::Lost { .. }))
+        .count();
+    assert_eq!(lost, 3);
+    assert_eq!(t.record.uncategorised(), vec![hm(9, 0), hm(9, 20), hm(9, 40)]);
+}
+
+#[test]
+fn starting_after_the_finish_time_gives_a_one_block_day() {
+    let t = Tracker::start_day(hm(18, 5), vec![], Settings::default());
+    assert_eq!((t.record.start, t.record.end), (hm(18, 0), hm(18, 20)));
+}
+
+#[test]
+fn any_block_can_be_turned_into_work_or_lost_and_back() {
+    let mut t = Tracker::start_day(hm(10, 0), vec![lunch()], Settings::default());
+    let r = &mut t.record;
+    let kind = |r: &DayRecord, s| r.blocks().into_iter().find(|b| b.start == s).unwrap().kind;
+    // Back-fill a missed block as Work.
+    r.set_type(hm(9, 0), Some(BlockType::Work)).unwrap();
+    assert_eq!(kind(r, hm(9, 0)), BlockKind::Work { rework: false });
+    r.set_rework(hm(9, 0), true).unwrap();
+    assert_eq!(kind(r, hm(9, 0)), BlockKind::Work { rework: true });
+    // Turn Work into Lost, then categorise it.
+    r.set_type(hm(10, 0), Some(BlockType::Lost)).unwrap();
+    assert_eq!(kind(r, hm(10, 0)), BlockKind::Lost { category: None });
+    r.categorise(hm(10, 0), LostCategory::Wait).unwrap();
+    // Planned time can be overridden, and restored.
+    let before = r.inputs(&Settings::default());
+    r.set_type(hm(12, 0), Some(BlockType::Work)).unwrap();
+    assert_eq!(kind(r, hm(12, 0)), BlockKind::Work { rework: false });
+    assert_eq!(r.inputs(&Settings::default()).planned_minutes, before.planned_minutes - 20);
+    r.set_type(hm(12, 0), None).unwrap();
+    assert!(matches!(kind(r, hm(12, 0)), BlockKind::Planned(_)));
+    assert_eq!(r.inputs(&Settings::default()), before);
+    assert_eq!(r.set_type(hm(3, 0), None), Err(EditError::NoSuchBlock));
+}
+
+#[test]
+fn any_block_can_be_turned_into_planned_time() {
+    let mut r = day();
+    let s = Settings::default();
+    let before = r.inputs(&s);
+    r.set_type(hm(10, 0), Some(BlockType::Planned(PlannedKind::Meeting))).unwrap();
+    let b = r.blocks().into_iter().find(|b| b.start == hm(10, 0)).unwrap();
+    assert_eq!(b.kind, BlockKind::Planned(PlannedKind::Meeting));
+    let after = r.inputs(&s);
+    assert_eq!(after.planned_minutes, before.planned_minutes + 20);
+    assert_eq!(after.work_points, before.work_points - 1);
+    // Back to Work: no override is left behind.
+    r.set_type(hm(10, 0), Some(BlockType::Work)).unwrap();
+    assert_eq!(r.inputs(&s), before);
+    // Choosing a calendar block's own planned type changes nothing.
+    let mut r = DayRecord::new(hm(9, 0), hm(17, 40), vec![lunch()]);
+    let before = r.inputs(&s);
+    r.set_type(hm(12, 0), Some(BlockType::Planned(PlannedKind::Break))).unwrap();
+    assert_eq!(r.inputs(&s), before);
+    // Lost time turned planned stops counting as a loss.
+    let mut r = day();
+    r.add_downtime(hm(10, 0), hm(10, 25));
+    r.set_type(hm(10, 0), Some(BlockType::Planned(PlannedKind::Break))).unwrap();
+    assert!(r.uncategorised().is_empty());
+}

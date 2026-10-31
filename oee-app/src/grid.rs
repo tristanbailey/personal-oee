@@ -42,7 +42,7 @@ fn planned_label(record: &DayRecord, start: u32, kind: PlannedKind) -> String {
     record
         .planned
         .iter()
-        .find(|w| w.start <= start && start < w.end && !w.label.is_empty())
+        .find(|w| w.kind == kind && w.start <= start && start < w.end && !w.label.is_empty())
         .map(|w| w.label.clone())
         .unwrap_or_else(|| {
             match kind {

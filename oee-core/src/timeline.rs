@@ -25,9 +25,20 @@ pub struct DowntimeEvent {
 /// What the user has changed on a block, keyed by the block's start minute.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 struct BlockEdit {
+    /// Overrides what the block would otherwise be, for back-filling a day.
+    #[serde(default)]
+    force: Option<BlockType>,
     category: Option<LostCategory>,
     rework: bool,
     note: Option<String>,
+}
+
+/// What the user can turn any block into after the fact.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum BlockType {
+    Work,
+    Lost,
+    Planned(PlannedKind),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -138,14 +149,30 @@ impl DayRecord {
         self.planned_minutes_until(self.end)
     }
 
-    /// Planned minutes that have happened by `until`.
+    /// Planned minutes that have happened by `until`. A block the user has
+    /// turned into Work or Lost no longer counts as planned, and one turned
+    /// into Planned always does.
     fn planned_minutes_until(&self, until: u32) -> u32 {
         let end = self.end.min(until);
+        let mut total = self.planned_in(self.start, end);
+        for (&s, edit) in &self.edits {
+            let Some(force) = edit.force else { continue };
+            let e = (s + BLOCK_MINUTES).min(end);
+            total -= self.planned_in(s, e);
+            if matches!(force, BlockType::Planned(_)) && s >= self.start && e > s {
+                total += e - s;
+            }
+        }
+        total
+    }
+
+    /// Planned minutes within `from..to`, overlaps merged.
+    fn planned_in(&self, from: u32, to: u32) -> u32 {
         let mut total = 0;
-        let mut covered_to = self.start;
+        let mut covered_to = from;
         for w in &self.planned {
-            let s = w.start.max(covered_to).max(self.start);
-            let e = w.end.min(end);
+            let s = w.start.max(covered_to).max(from);
+            let e = w.end.min(to);
             if e > s {
                 total += e - s;
                 covered_to = e;
@@ -236,14 +263,21 @@ impl DayRecord {
             .map(|i| {
                 let (s, e) = slot(i);
                 let edit = self.edits.get(&s);
-                let kind = match kinds[i] {
-                    None => BlockKind::Work {
+                let kind = match (edit.and_then(|x| x.force), kinds[i]) {
+                    (Some(BlockType::Work), _) => BlockKind::Work {
                         rework: edit.is_some_and(|x| x.rework),
                     },
-                    Some(BlockKind::Lost { .. }) => BlockKind::Lost {
+                    (Some(BlockType::Lost), _) => BlockKind::Lost {
                         category: edit.and_then(|x| x.category),
                     },
-                    Some(k) => k,
+                    (Some(BlockType::Planned(k)), _) => BlockKind::Planned(k),
+                    (None, None) => BlockKind::Work {
+                        rework: edit.is_some_and(|x| x.rework),
+                    },
+                    (None, Some(BlockKind::Lost { .. })) => BlockKind::Lost {
+                        category: edit.and_then(|x| x.category),
+                    },
+                    (None, Some(k)) => k,
                 };
                 Block {
                     start: s,
@@ -261,6 +295,24 @@ impl DayRecord {
             .into_iter()
             .find(|b| b.start == start)
             .ok_or(EditError::NoSuchBlock)
+    }
+
+    /// Turn a block into Work or Lost time, or `None` to go back to what the
+    /// day's events and calendar make it. For back-filling or correcting a day.
+    pub fn set_type(&mut self, block_start: u32, ty: Option<BlockType>) -> Result<(), EditError> {
+        self.block_at(block_start)?;
+        // Choosing what the block already is without edits needs no override.
+        let mut unedited = self.clone();
+        unedited.edits.clear();
+        let auto = unedited.block_at(block_start)?.kind;
+        let same = match (ty, auto) {
+            (Some(BlockType::Work), BlockKind::Work { .. }) => true,
+            (Some(BlockType::Lost), BlockKind::Lost { .. }) => true,
+            (Some(BlockType::Planned(a)), BlockKind::Planned(b)) => a == b,
+            _ => false,
+        };
+        self.edits.entry(block_start).or_default().force = if same { None } else { ty };
+        Ok(())
     }
 
     /// Set the category of a lost block (FR-012).

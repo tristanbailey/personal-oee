@@ -117,6 +117,9 @@ Each item has an ID (D-xx), the PRD requirements it covers, and a "Done when" ch
 - [x] D-45 Practice mode, a debug-only fake clock with +1 / +5 / +20 / +60 min buttons, matching the prototype. Useful for manual testing. Hidden in release builds. *Status: buttons seen in a debug build; the release binary contains none of the practice code. Build a debug bundle with `scripts/bundle.sh debug`. Clicking the buttons still needs a manual check.*
 - [x] D-46 Bring the prototype's colours into the egui theme for light and dark mode, using the tokens below. *Status: done for colours, in light and dark (follows the system; `PERSONAL_OEE_THEME=light|dark` forces one). The Barlow and JetBrains Mono fonts are not bundled yet.*
 - [ ] D-47 Make it obvious how to reopen the window after closing it. Add an "Open Personal OEE" item to the app's own menu in the macOS menu bar (and a Window menu entry), and reopen the window when the Dock icon is clicked. *From manual testing of D-43: the window closed and the app kept running, but the only way back was the small menu-bar item.*
+- [x] D-48 Always start blocks on the clock's 00/20/40 grid. Starting the day mid-block counts that whole block as started on time, so the block start is never moved to now. *Status: done in `Tracker::start_day`, with tests.*
+- [x] D-49 Always show the day as the normal set hours (default start to default finish), not starting at the moment the timer began. Blocks before the first started block default to lost time (uncategorised, so System Down until changed). An earlier start still extends the day back to it, and starting after the finish time gives a one-block day. *Status: done in `Tracker::start_day`, with tests. A late start no longer lowers the target; the missed blocks count as lost instead.*
+- [x] D-50 Let any block be changed to a different type after it has started or finished, so a day can be back-filled or corrected: Downtime to Work, Work to Downtime, and either to Planned (Break or Meeting), or a planned block to Work or Lost. The block editor gets a Type picker (Work / Lost time / Planned). A block turned into Planned counts as planned time; a planned block turned into Work or Lost stops counting as planned. Saved in the day's file; older files still load. *Status: done in `DayRecord::set_type` and the block editor, with tests. The picker itself still needs a manual check in the running app.*
 
 ### Design tokens from the prototype
 
@@ -149,5 +152,7 @@ Fonts: Barlow Condensed for headings and the status word, Barlow for body text, 
 | `Tracker::end_now(now)` | D-27 |
 | Calendar entry ids; remove by id | D-30 |
 | Public `snap` | D-32 |
+| `Tracker::start_day` snaps to the grid and keeps the default hours | D-48, D-49 |
+| `DayRecord::set_type`, `BlockType` | D-50 |
 
 Each change needs tests added to `oee-core/tests/` before the app work that uses it.

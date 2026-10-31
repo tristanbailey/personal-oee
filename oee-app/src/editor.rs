@@ -1,7 +1,7 @@
 //! The block editor: a modal opened by clicking a block (D-25, D-26).
 
 use eframe::egui::{self, RichText};
-use oee_core::{Block, BlockKind, DayRecord, LostCategory, Mode, PlannedKind};
+use oee_core::{Block, BlockKind, BlockType, DayRecord, LostCategory, Mode, PlannedKind};
 
 /// FR-025: notes are optional and capped.
 pub const NOTE_LIMIT: usize = 300;
@@ -12,8 +12,8 @@ pub enum Kind {
     Lost { category: Option<LostCategory> },
     /// FR-019: Work, optionally Rework.
     Work { rework: bool },
-    /// Read-only: names the planned window.
-    Planned { name: String },
+    /// Planned downtime, a Break or a Meeting. `name` is the calendar window's.
+    Planned { kind: PlannedKind, name: String },
     /// A stop that hasn't ended yet. It can be categorised once it has.
     Running,
 }
@@ -23,6 +23,8 @@ pub struct Editor {
     pub block_start: u32,
     pub block_end: u32,
     pub kind: Kind,
+    /// What the block was when opened, so the type picker can switch back.
+    pub original: Kind,
     pub note: String,
     pub error: Option<String>,
 }
@@ -31,7 +33,7 @@ fn planned_name(record: &DayRecord, start: u32, kind: PlannedKind) -> String {
     record
         .planned
         .iter()
-        .find(|w| w.start <= start && start < w.end && !w.label.is_empty())
+        .find(|w| w.kind == kind && w.start <= start && start < w.end && !w.label.is_empty())
         .map(|w| w.label.clone())
         .unwrap_or_else(|| {
             match kind {
@@ -74,6 +76,7 @@ impl Editor {
                 BlockKind::Lost { category } => Kind::Lost { category },
                 BlockKind::Work { rework } => Kind::Work { rework },
                 BlockKind::Planned(k) => Kind::Planned {
+                    kind: k,
                     name: planned_name(live, block.start, k),
                 },
             }
@@ -81,6 +84,7 @@ impl Editor {
         Some(Editor {
             block_start,
             block_end: block.end,
+            original: kind.clone(),
             kind,
             note: block.note.unwrap_or_default(),
             error: None,
@@ -96,6 +100,16 @@ impl Editor {
         }
     }
 
+    /// Switch the block's type. Choosing what it was when opened brings back
+    /// its category or rework mark.
+    pub fn switch_to(&mut self, kind: Kind) {
+        self.kind = if std::mem::discriminant(&kind) == std::mem::discriminant(&self.original) {
+            self.original.clone()
+        } else {
+            kind
+        };
+    }
+
     /// D-26: apply the edits to `record`. Everything is applied to a copy and
     /// only swapped in if every step works, so a failure saves nothing.
     pub fn save(&self, record: &mut DayRecord) -> Result<(), String> {
@@ -105,11 +119,14 @@ impl Editor {
         let mut copy = record.clone();
         let s = self.block_start;
         let result = match &self.kind {
-            Kind::Lost {
-                category: Some(c), ..
-            } => copy.categorise(s, *c),
-            Kind::Work { rework } => copy.set_rework(s, *rework),
-            _ => Ok(()),
+            Kind::Lost { category } => copy
+                .set_type(s, Some(BlockType::Lost))
+                .and_then(|()| category.map_or(Ok(()), |c| copy.categorise(s, c))),
+            Kind::Work { rework } => copy
+                .set_type(s, Some(BlockType::Work))
+                .and_then(|()| copy.set_rework(s, *rework)),
+            Kind::Planned { kind, .. } => copy.set_type(s, Some(BlockType::Planned(*kind))),
+            Kind::Running => Ok(()),
         }
         .and_then(|()| copy.set_note(s, Some(self.note.clone())));
         result.map_err(|e| e.to_string())?;
@@ -136,6 +153,7 @@ pub fn show(ctx: &egui::Context, ed: &mut Editor) -> Outcome {
         return Outcome::Cancel;
     }
     egui::Window::new(ed.title())
+        .id(egui::Id::new("block_editor"))
         .collapsible(false)
         .resizable(false)
         .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
@@ -143,6 +161,32 @@ pub fn show(ctx: &egui::Context, ed: &mut Editor) -> Outcome {
             ui.set_min_width(380.0);
             ui.label(RichText::new(format!("{}–{}", hhmm(ed.block_start), hhmm(ed.block_end))).monospace());
             ui.add_space(6.0);
+            if ed.original != Kind::Running {
+                ui.horizontal(|ui| {
+                    ui.label("Type");
+                    let is = |k: &Kind| std::mem::discriminant(k) == std::mem::discriminant(&ed.kind);
+                    let mut pick = None;
+                    for (label, kind) in [
+                        ("Work", Kind::Work { rework: false }),
+                        ("Lost time", Kind::Lost { category: None }),
+                        (
+                            "Planned",
+                            Kind::Planned {
+                                kind: PlannedKind::Break,
+                                name: String::new(),
+                            },
+                        ),
+                    ] {
+                        if ui.selectable_label(is(&kind), label).clicked() {
+                            pick = Some(kind);
+                        }
+                    }
+                    if let Some(k) = pick {
+                        ed.switch_to(k);
+                    }
+                });
+                ui.add_space(6.0);
+            }
             match &mut ed.kind {
                 Kind::Lost { category } => {
                     for c in LostCategory::ALL {
@@ -173,8 +217,14 @@ pub fn show(ctx: &egui::Context, ed: &mut Editor) -> Outcome {
                         .small(),
                     );
                 }
-                Kind::Planned { name } => {
-                    ui.label(format!("Planned downtime: {name}. This block is set by the calendar."));
+                Kind::Planned { kind, name } => {
+                    ui.horizontal(|ui| {
+                        ui.selectable_value(kind, PlannedKind::Break, "Break");
+                        ui.selectable_value(kind, PlannedKind::Meeting, "Meeting");
+                    });
+                    if matches!(&ed.original, Kind::Planned { kind: k, .. } if k == kind) {
+                        ui.label(format!("From the calendar: {name}."));
+                    }
                 }
                 Kind::Running => {
                     ui.label("This stop is still running. You can categorise it once it ends.");
@@ -229,7 +279,7 @@ mod tests {
         assert_eq!(open(&r, hm(9, 0), now).unwrap().title(), "Work");
         let planned = open(&r, hm(12, 0), now).unwrap();
         assert_eq!(planned.title(), "Planned downtime");
-        assert_eq!(planned.kind, Kind::Planned { name: "Lunch".into() });
+        assert_eq!(planned.kind, Kind::Planned { kind: PlannedKind::Break, name: "Lunch".into() });
     }
 
     #[test]
@@ -275,24 +325,56 @@ mod tests {
     }
 
     #[test]
-    fn an_edit_error_is_plain_and_saves_nothing() {
+    fn a_block_can_change_type_and_back() {
+        let lunch = PlannedWindow::new(hm(12, 0), hm(13, 0), PlannedKind::Break, "Lunch");
+        let mut r = DayRecord::new(hm(9, 0), hm(17, 40), vec![lunch]);
+        r.add_downtime(hm(10, 0), hm(10, 25));
+        let now = hm(15, 0);
+        let kind = |r: &DayRecord, s| r.blocks().into_iter().find(|b| b.start == s).unwrap().kind;
+
+        // Lost to Work, and the category comes back if the user changes their mind.
+        let mut ed = open(&r, hm(10, 0), now).unwrap();
+        ed.kind = Kind::Lost { category: Some(LostCategory::Idle) };
+        ed.save(&mut r).unwrap();
+        let mut ed = open(&r, hm(10, 0), now).unwrap();
+        ed.switch_to(Kind::Work { rework: false });
+        assert_eq!(ed.kind, Kind::Work { rework: false });
+        ed.switch_to(Kind::Lost { category: None });
+        assert_eq!(ed.kind, Kind::Lost { category: Some(LostCategory::Idle) });
+        ed.switch_to(Kind::Work { rework: false });
+        ed.save(&mut r).unwrap();
+        assert_eq!(kind(&r, hm(10, 0)), BlockKind::Work { rework: false });
+
+        // Work to Lost.
+        let mut ed = open(&r, hm(11, 0), now).unwrap();
+        ed.switch_to(Kind::Lost { category: None });
+        ed.kind = Kind::Lost { category: Some(LostCategory::Wait) };
+        ed.save(&mut r).unwrap();
+        assert_eq!(kind(&r, hm(11, 0)), BlockKind::Lost { category: Some(LostCategory::Wait) });
+
+        // Planned to Work, then back to Planned.
+        let mut ed = open(&r, hm(12, 0), now).unwrap();
+        ed.switch_to(Kind::Work { rework: false });
+        ed.save(&mut r).unwrap();
+        assert_eq!(kind(&r, hm(12, 0)), BlockKind::Work { rework: false });
+        let mut ed = open(&r, hm(12, 0), now).unwrap();
+        assert_eq!(ed.original, Kind::Work { rework: false });
+        ed.switch_to(Kind::Planned { kind: PlannedKind::Break, name: "Lunch".into() });
+        assert_eq!(ed.kind, Kind::Planned { kind: PlannedKind::Break, name: "Lunch".into() });
+    }
+
+    #[test]
+    fn a_block_can_become_planned_time() {
         let mut r = day();
-        // The editor thinks this block is lost, but it's Work.
-        let ed = Editor {
-            block_start: hm(9, 0),
-            block_end: hm(9, 20),
-            kind: Kind::Lost {
-                category: Some(LostCategory::Idle),
-            },
-            note: "should not be saved".into(),
-            error: None,
-        };
-        let before = r.clone();
-        assert_eq!(
-            ed.save(&mut r),
-            Err("only lost-time blocks can be categorised".into())
-        );
-        assert_eq!(r, before);
+        let mut ed = open(&r, hm(10, 0), hm(15, 0)).unwrap();
+        ed.switch_to(Kind::Planned { kind: PlannedKind::Break, name: String::new() });
+        ed.kind = Kind::Planned { kind: PlannedKind::Meeting, name: String::new() };
+        ed.save(&mut r).unwrap();
+        let b = r.blocks().into_iter().find(|b| b.start == hm(10, 0)).unwrap();
+        assert_eq!(b.kind, BlockKind::Planned(PlannedKind::Meeting));
+        let ed = open(&r, hm(10, 0), hm(15, 0)).unwrap();
+        assert_eq!(ed.title(), "Planned downtime");
+        assert_eq!(r.inputs(&Settings::default()).planned_minutes, 20);
     }
 
     #[test]

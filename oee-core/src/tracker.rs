@@ -64,11 +64,25 @@ pub struct Tracker {
 }
 
 impl Tracker {
-    /// FR-003 to FR-005: start the day at `now` (which may be early), ending at
-    /// the default finish time. Planned windows come from the weekly calendar.
+    /// FR-003 to FR-005: start the day at `now`. Blocks sit on the clock's
+    /// 00/20/40 grid, so starting mid-block counts that whole block as started
+    /// on time. The day keeps its normal hours: any blocks before the one `now`
+    /// falls in are lost time, to be recategorised or turned into Work. An early
+    /// start extends the day back to it. Starting at or after the finish time
+    /// gives a one-block day. Planned windows come from the weekly calendar.
     pub fn start_day(now: u32, planned: Vec<PlannedWindow>, settings: Settings) -> Self {
-        let end = settings.default_end.max(now + crate::rules::BLOCK_MINUTES);
-        let mut record = DayRecord::new(now, end, planned);
+        let block = crate::rules::BLOCK_MINUTES;
+        let first = now / block * block;
+        let (start, end) = if first >= settings.default_end {
+            (first, first + block)
+        } else {
+            (
+                (settings.default_start / block * block).min(first),
+                settings.default_end.max(first + block),
+            )
+        };
+        let mut record = DayRecord::new(start, end, planned);
+        record.add_downtime(start, first);
         record.scored_with = Some(settings);
         Self {
             record,
