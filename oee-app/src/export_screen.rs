@@ -105,6 +105,10 @@ fn free_path(dir: &Path, stem: &str) -> PathBuf {
         .expect("an unused name")
 }
 
+/// Marks the file as UTF-8 so Excel shows accents and non-Latin text correctly
+/// when it is opened by double-click. Numbers and Python ignore it.
+const BOM: &str = "\u{feff}";
+
 /// Write both files into `dir`. Returns their paths: days first, then blocks.
 pub fn write_files(
     dir: &Path,
@@ -115,8 +119,8 @@ pub fn write_files(
 ) -> io::Result<(PathBuf, PathBuf)> {
     let days = free_path(dir, &format!("oee-days-{from}-{to}"));
     let blocks = free_path(dir, &format!("oee-blocks-{from}-{to}"));
-    std::fs::write(&days, days_csv)?;
-    std::fs::write(&blocks, blocks_csv)?;
+    std::fs::write(&days, format!("{BOM}{days_csv}"))?;
+    std::fs::write(&blocks, format!("{BOM}{blocks_csv}"))?;
     Ok((days, blocks))
 }
 
@@ -230,8 +234,8 @@ mod tests {
         assert!(b.ends_with("oee-blocks-2026-10-26-2026-10-30.csv"));
         let (a2, _) = write_files(&dir, d(26), d(30), "two", "y").unwrap();
         assert!(a2.ends_with("oee-days-2026-10-26-2026-10-30 (2).csv"));
-        assert_eq!(std::fs::read_to_string(a).unwrap(), "one");
-        assert_eq!(std::fs::read_to_string(a2).unwrap(), "two");
+        assert_eq!(std::fs::read_to_string(a).unwrap(), "\u{feff}one");
+        assert_eq!(std::fs::read_to_string(a2).unwrap(), "\u{feff}two");
         let _ = std::fs::remove_dir_all(&dir);
     }
 }
