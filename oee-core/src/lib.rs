@@ -10,6 +10,7 @@
 //! - [`rules`]: constants, block counting, daily target.
 //! - [`category`]: lost-time categories and per-category loss minutes.
 //! - [`metrics`]: daily Availability, Efficiency, Quality, OEE.
+//! - [`export`]: CSV text for days and blocks.
 //! - [`week`]: pooled weekly figures and report helpers.
 //! - [`calendar`]: the repeating weekly Planned Downtime calendar.
 //! - [`timeline`]: a day's 20-minute blocks, built from downtime events and edits.
@@ -17,6 +18,7 @@
 
 pub mod calendar;
 pub mod category;
+pub mod export;
 pub mod metrics;
 pub mod rules;
 pub mod timeline;

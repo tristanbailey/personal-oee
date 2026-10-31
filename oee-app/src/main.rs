@@ -14,6 +14,7 @@ mod start;
 mod settings;
 mod store;
 mod theme;
+mod reopen;
 mod tray;
 mod tabs;
 mod week_screen;
@@ -63,6 +64,8 @@ struct App {
     hotkey: Option<hotkey::Hotkey>,
     /// The menu-bar item (D-41).
     tray: Option<tray::Tray>,
+    /// False while the window is hidden in the menu bar (D-43, D-47).
+    window_visible: bool,
     /// macOS notifications for the engine's notices (D-42).
     notifier: Option<notify::Notifier>,
     /// Set by the menu-bar Quit, so closing the window really closes (D-43).
@@ -97,6 +100,9 @@ impl App {
         match tray::Tray::new(ctx.clone()) {
             Ok(t) => app.tray = Some(t),
             Err(e) => app.push_message(format!("Couldn't add the menu-bar item: {e}")),
+        }
+        if let Err(e) = reopen::install(ctx.clone()) {
+            app.push_message(format!("Dock-click reopen isn't available: {e}"));
         }
         let shortcut = app.settings.shortcut;
         let registered = shortcut
@@ -142,6 +148,9 @@ impl App {
             past_day: None,
             hotkey: None,
             tray: None,
+            window_visible: !lifecycle::start_hidden(
+                std::env::var(lifecycle::HIDDEN_ENV).ok().as_deref(),
+            ),
             notifier: None,
             quitting: false,
             practice: Default::default(),
@@ -387,6 +396,7 @@ impl eframe::App for App {
         ) {
             ctx.send_viewport_cmd(egui::ViewportCommand::CancelClose);
             ctx.send_viewport_cmd(egui::ViewportCommand::Visible(false));
+            self.window_visible = false;
         }
         // After a sleep, the tick below catches the day up straight away.
         let wall = Local::now();
@@ -420,7 +430,9 @@ impl eframe::App for App {
             self.toggle_downtime(now);
         }
         let clicked = self.notifier.as_ref().is_some_and(|n| n.take_open());
-        if menu.open || clicked {
+        let dock = reopen::should_show(reopen::take_requested(), self.window_visible);
+        if menu.open || clicked || dock {
+            self.window_visible = true;
             ctx.send_viewport_cmd(egui::ViewportCommand::Visible(true));
             ctx.send_viewport_cmd(egui::ViewportCommand::Focus);
         }

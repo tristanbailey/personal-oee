@@ -6,7 +6,8 @@ use std::sync::Arc;
 
 use eframe::egui;
 use oee_core::{Mode, Tracker, BLOCK_MINUTES};
-use tray_icon::menu::{Menu, MenuEvent, MenuItem, PredefinedMenuItem};
+use tray_icon::menu::accelerator::{Accelerator, Code, Modifiers};
+use tray_icon::menu::{Menu, MenuEvent, MenuItem, PredefinedMenuItem, Submenu};
 use tray_icon::{Icon, TrayIcon, TrayIconBuilder};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -119,6 +120,53 @@ pub struct Tray {
     toggle: MenuItem,
     flags: Arc<Flags>,
     shown: Option<TrayState>,
+    /// Kept alive so the app's own menu bar stays in place (D-47).
+    _app_menu: Menu,
+}
+
+/// The app's own menu bar (D-47): an "Open Personal OEE" item in the app menu
+/// and a Window menu entry, so there is always an obvious way back after the
+/// window is closed. Quit goes through the same flag as the menu-bar item, so
+/// it really quits instead of just hiding the window (D-43).
+fn app_menu(open_ids: &mut Vec<tray_icon::menu::MenuId>, quit_id: &mut Option<tray_icon::menu::MenuId>) -> Result<Menu, String> {
+    let err = |e: tray_icon::menu::Error| e.to_string();
+    let cmd = |code| Some(Accelerator::new(Some(Modifiers::SUPER), code));
+    let open_app = MenuItem::new("Open Personal OEE", true, cmd(Code::KeyO));
+    let open_window = MenuItem::new("Personal OEE", true, cmd(Code::Digit0));
+    let quit = MenuItem::new("Quit Personal OEE", true, cmd(Code::KeyQ));
+    open_ids.push(open_app.id().clone());
+    open_ids.push(open_window.id().clone());
+    *quit_id = Some(quit.id().clone());
+
+    let app = Submenu::new("Personal OEE", true);
+    app.append_items(&[
+        &PredefinedMenuItem::about(None, None),
+        &PredefinedMenuItem::separator(),
+        &open_app,
+        &PredefinedMenuItem::separator(),
+        &PredefinedMenuItem::hide(None),
+        &PredefinedMenuItem::hide_others(None),
+        &PredefinedMenuItem::show_all(None),
+        &PredefinedMenuItem::separator(),
+        &quit,
+    ])
+    .map_err(err)?;
+    let window = Submenu::new("Window", true);
+    window
+        .append_items(&[
+            &open_window,
+            &PredefinedMenuItem::separator(),
+            &PredefinedMenuItem::minimize(None),
+        ])
+        .map_err(err)?;
+    let menu = Menu::new();
+    menu.append_items(&[&app, &window]).map_err(err)?;
+    #[cfg(target_os = "macos")]
+    {
+        menu.init_for_nsapp();
+        window.set_as_windows_menu_for_nsapp();
+    }
+    Ok(menu)
 }
 
 impl Tray {
@@ -131,19 +179,18 @@ impl Tray {
         menu.append_items(&[&toggle, &open, &PredefinedMenuItem::separator(), &quit])
             .map_err(|e| e.to_string())?;
 
+        let mut open_ids = vec![open.id().clone()];
+        let mut app_quit_id = None;
+        let app_menu = app_menu(&mut open_ids, &mut app_quit_id)?;
+
         let flags = Arc::new(Flags::default());
-        let (f, toggle_id, open_id, quit_id) = (
-            flags.clone(),
-            toggle.id().clone(),
-            open.id().clone(),
-            quit.id().clone(),
-        );
+        let (f, toggle_id, quit_id) = (flags.clone(), toggle.id().clone(), quit.id().clone());
         MenuEvent::set_event_handler(Some(move |e: MenuEvent| {
             let flag = if e.id == toggle_id {
                 &f.toggle
-            } else if e.id == open_id {
+            } else if open_ids.contains(&e.id) {
                 &f.open
-            } else if e.id == quit_id {
+            } else if e.id == quit_id || Some(&e.id) == app_quit_id.as_ref() {
                 &f.quit
             } else {
                 return;
@@ -163,6 +210,7 @@ impl Tray {
             toggle,
             flags,
             shown: None,
+            _app_menu: app_menu,
         })
     }
 
