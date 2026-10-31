@@ -3,6 +3,7 @@
 mod andon;
 mod calendar_screen;
 mod editor;
+mod export_screen;
 mod grid;
 mod lifecycle;
 mod hotkey;
@@ -57,6 +58,8 @@ struct App {
     /// The Monday of the week shown on the Week tab (D-34).
     week_monday: NaiveDate,
     week_cache: Option<WeekCache>,
+    /// The CSV export options on the Week tab (D-52).
+    export_form: export_screen::ExportForm,
     /// Every saved day, for the over-capacity list. Refreshed every few seconds.
     /// A past day being viewed or edited, shown on the Today tab (D-39).
     past_day: Option<past_day::PastDay>,
@@ -144,6 +147,7 @@ impl App {
             add_form: Default::default(),
             week_monday: week_screen::week_start(today),
             week_cache: None,
+            export_form: export_screen::ExportForm::default(),
             all_days_cache: None,
             past_day: None,
             hotkey: None,
@@ -360,6 +364,45 @@ impl App {
         }
     }
 
+    /// D-52: write the days and blocks CSV for the chosen range into a folder
+    /// the user picks.
+    fn export_csv(&mut self, now: u32) {
+        self.export_form.error = None;
+        let saved = self.store.as_ref().map(|s| s.load_all()).unwrap_or_default();
+        let dates: Vec<NaiveDate> = saved.iter().map(|(d, _)| *d).collect();
+        let (from, to) = match export_screen::resolve(&self.export_form, self.week_monday, &dates) {
+            Ok(range) => range,
+            Err(e) => {
+                self.export_form.error = Some(e);
+                return;
+            }
+        };
+        let days = export_screen::build_days(from, to, &saved, self.today, now);
+        let core = self.settings.core;
+        let Some(dir) = rfd::FileDialog::new()
+            .set_title("Choose a folder for the CSV files")
+            .pick_folder()
+        else {
+            return; // cancelled
+        };
+        let days_csv = oee_core::export::days_csv(&days, &core);
+        let blocks_csv = oee_core::export::blocks_csv(&days, &core);
+        match export_screen::write_files(&dir, from, to, &days_csv, &blocks_csv) {
+            Ok((d, b)) => {
+                let name = |p: &std::path::Path| {
+                    p.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default()
+                };
+                self.push_message(format!(
+                    "Saved {} and {} to {}.",
+                    name(&d),
+                    name(&b),
+                    dir.display()
+                ));
+            }
+            Err(e) => self.export_form.error = Some(format!("Couldn't save the files: {e}")),
+        }
+    }
+
     fn push_message(&mut self, message: String) {
         self.messages.push(message);
         let extra = self.messages.len().saturating_sub(5);
@@ -498,10 +541,12 @@ impl eframe::App for App {
             let mut go_to = None;
             let mut open_date = None;
             let mut save_settings = false;
+            let mut export_now = false;
             egui::CentralPanel::default().show(ctx, |ui| match self.tab {
                 tabs::Tab::Week => {
                     let working = week_view.as_ref().map_or(0, |v| v.working_days);
                     go_to = week_screen::show_nav(ui, monday, working);
+                    export_now = export_screen::show(ui, &mut self.export_form);
                     if let Some(v) = &week_view {
                         egui::ScrollArea::vertical().show(ui, |ui| {
                             ui.add_space(6.0);
@@ -526,6 +571,9 @@ impl eframe::App for App {
             });
             if save_settings {
                 self.apply_settings();
+            }
+            if export_now {
+                self.export_csv(now);
             }
             if let Some(m) = go_to {
                 self.week_monday = m;
