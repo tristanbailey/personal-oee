@@ -6,16 +6,18 @@
 //! without starting a process.
 
 pub mod catalogue;
+pub mod day;
 pub mod output;
+pub mod view;
 
 use std::path::PathBuf;
 
 use chrono::{DateTime, Local, NaiveDate};
 use clap::{Parser, Subcommand};
 use oee_store::{clock, location};
-use serde_json::{json, Value};
+use serde_json::json;
 
-use output::{CliError, Exit, Stamp};
+use output::{CliError, Exit, Reply, Stamp};
 
 #[derive(Parser, Debug)]
 #[command(
@@ -60,6 +62,9 @@ pub enum Command {
         /// A name from `commands`.
         command: String,
     },
+    /// The day: start, status, downtime, extend, end, finish, show, list, delete.
+    #[command(subcommand)]
+    Day(day::DayCommand),
 }
 
 impl Command {
@@ -68,6 +73,7 @@ impl Command {
             Command::Version => "version",
             Command::Commands => "commands",
             Command::Schema { .. } => "schema",
+            Command::Day(d) => d.name(),
         }
     }
 }
@@ -155,7 +161,7 @@ where
         Err(e) => return failure(name, &e, cli.text),
     };
     match dispatch(&cli.command, &ctx) {
-        Ok(result) => success(name, &ctx, &result),
+        Ok(reply) => success(name, &ctx, &reply),
         Err(e) => failure(name, &e, ctx.text),
     }
 }
@@ -181,25 +187,29 @@ fn context(cli: &Cli, env: &Env, system: DateTime<Local>) -> Result<Context, Cli
     })
 }
 
-fn dispatch(command: &Command, _ctx: &Context) -> Result<Value, CliError> {
+fn dispatch(command: &Command, ctx: &Context) -> Result<Reply, CliError> {
     match command {
         Command::Version => Ok(json!({
             "cli": env!("CARGO_PKG_VERSION"),
             "engine": env!("CARGO_PKG_VERSION"),
-        })),
-        Command::Commands => Ok(catalogue::commands_result()),
-        Command::Schema { command } => catalogue::schema_for(command).ok_or_else(|| {
-            CliError::new(Exit::NotFound, "no_such_command", format!("There is no command called \"{command}\"."))
-                .hint("Run `office-oee commands` for the list.")
-        }),
+        })
+        .into()),
+        Command::Commands => Ok(catalogue::commands_result().into()),
+        Command::Schema { command } => catalogue::schema_for(command)
+            .map(Reply::from)
+            .ok_or_else(|| {
+                CliError::new(Exit::NotFound, "no_such_command", format!("There is no command called \"{command}\"."))
+                    .hint("Run `office-oee commands` for the list.")
+            }),
+        Command::Day(d) => day::run(ctx, d),
     }
 }
 
-fn success(name: &str, ctx: &Context, result: &Value) -> Outcome {
+fn success(name: &str, ctx: &Context, reply: &Reply) -> Outcome {
     let stdout = if ctx.text {
-        output::result_text(result)
+        output::result_text(&reply.result)
     } else {
-        format!("{}\n", output::success_json(name, &ctx.stamp(), result, &[]))
+        format!("{}\n", output::success_json(name, &ctx.stamp(), &reply.result, &reply.notices))
     };
     Outcome { stdout, exit: Exit::Ok.code() }
 }

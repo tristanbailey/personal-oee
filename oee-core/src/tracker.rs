@@ -95,6 +95,16 @@ impl Tracker {
     /// when the app closed is picked up with its original start; `tick(now)` then
     /// applies any planned window or end of day passed while the app was closed.
     pub fn resume(record: DayRecord, settings: Settings, now: u32) -> Self {
+        Self::resume_with_notices(record, settings, now).0
+    }
+
+    /// Like [`Tracker::resume`], also returning the notices raised by catching
+    /// up to `now` (a planned window started, the day ended).
+    pub fn resume_with_notices(
+        record: DayRecord,
+        settings: Settings,
+        now: u32,
+    ) -> (Self, Vec<Notice>) {
         let mode = match record.down_since {
             Some(since) => Mode::Downtime { since },
             None => Mode::Work,
@@ -104,8 +114,8 @@ impl Tracker {
             settings,
             mode,
         };
-        t.tick(now);
-        t
+        let notices = t.tick(now);
+        (t, notices)
     }
 
     pub fn mode(&self) -> Mode {

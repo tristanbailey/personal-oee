@@ -84,6 +84,19 @@ impl CliError {
     }
 }
 
+/// A command's answer: the `result` and any notices the tracker raised.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Reply {
+    pub result: Value,
+    pub notices: Vec<Value>,
+}
+
+impl From<Value> for Reply {
+    fn from(result: Value) -> Self {
+        Self { result, notices: Vec::new() }
+    }
+}
+
 /// What the envelope says about when and for which day the command ran.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Stamp {

@@ -700,3 +700,17 @@ fn bulk_changes_skip_blocks_that_cannot_take_them() {
     assert_eq!(o, BulkOutcome { applied: 3, skipped: 1 });
     assert_eq!(r.inputs(&Settings::default()).planned_minutes, 60);
 }
+
+#[test]
+fn resume_with_notices_reports_what_happened_while_away() {
+    let t = Tracker::start_day(hm(9, 0), vec![lunch()], Settings::default());
+    let (t2, notices) = Tracker::resume_with_notices(saved(&t), Settings::default(), hm(12, 10));
+    assert_eq!(
+        t2.mode(),
+        Mode::Planned { kind: PlannedKind::Break, until: hm(13, 0) }
+    );
+    assert_eq!(
+        notices,
+        vec![Notice::PlannedStarted { kind: PlannedKind::Break, label: "Lunch".into() }]
+    );
+}

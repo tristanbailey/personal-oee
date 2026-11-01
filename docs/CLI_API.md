@@ -124,7 +124,7 @@ Each row says what the UI does today and which core call backs it, so the CLI ca
 
 | Command | Does | Backed by | Notes |
 |---|---|---|---|
-| `office-oee day start [--at HH:MM] [--end HH:MM]` | Start the day. Snaps to the 00/20/40 grid, takes today's planned windows from the calendar. | `Tracker::start_day`, `start::planned_for` | D-48, D-49. Refuses (code `day_exists`) if the date already has a record. |
+| `office-oee day start [--at HH:MM]` | Start the day. Snaps to the 00/20/40 grid, takes today's planned windows from the calendar. | `Tracker::start_day`, `start::planned_for` | D-48, D-49. Refuses (code `day_exists`) if the date already has a record. |
 | `office-oee day status` | Mode, current block, time left in block, since-when for downtime, today's metrics so far. | `Tracker::resume` + `inputs_at` | The "Today" screen as JSON. |
 | `office-oee day toggle` | Downtime ⇄ Work. Returns the stop summary when a stop ends. | `toggle_downtime_report` | Same message data as D-18: `{minutes, lost_blocks}`. Refused during Planned or after the day ends. |
 | `office-oee day downtime start` / `stop` | Explicit forms of the toggle. Refuse if already in that state. | `toggle_downtime_report` | Safer for agents than a blind toggle. Preferred in scripts. |
@@ -258,7 +258,7 @@ Proposed as a new milestone **M5 — CLI**. Each is test-first, in the same styl
 - [x] **C-02** Data-dir resolution: `OEE_DATA_DIR`, `--data-dir` and `--real`, with writes refused (exit 7) when none is given (G2). The app honours `OEE_DATA_DIR` too. Done when: a test with a temp dir never touches `~/Library`.
 - [x] **C-03** Clock injection: a `Clock` that is the system clock, `--now`, or `OEE_NOW` (G3). Done when: the same command with the same `--now` gives byte-identical JSON.
 - [x] **C-04** `oee-cli` skeleton: parsing, envelope, error codes, exit codes, `commands`, `schema`, `version`.
-- [ ] **C-05** Day lifecycle commands (5.1) with tests against `Tracker`.
+- [x] **C-05** Day lifecycle commands (5.1) with tests against `Tracker`.
 - [ ] **C-06** Block commands (5.2), including bulk with the skipped list.
 - [ ] **C-07** Calendar and settings commands (5.3).
 - [ ] **C-08** Report and export commands (5.4); `report week` equals the Week tab's figures on the Appendix A data (58.4%).

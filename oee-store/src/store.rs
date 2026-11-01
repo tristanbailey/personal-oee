@@ -43,6 +43,15 @@ impl Store {
         write_json(&self.day_path(date), record)
     }
 
+    /// Remove a saved day. Returns false if there was none.
+    pub fn delete_day(&self, date: NaiveDate) -> io::Result<bool> {
+        match fs::remove_file(self.day_path(date)) {
+            Ok(()) => Ok(true),
+            Err(e) if e.kind() == io::ErrorKind::NotFound => Ok(false),
+            Err(e) => Err(e),
+        }
+    }
+
     pub fn load_day(&self, date: NaiveDate) -> io::Result<Option<DayRecord>> {
         read_json(&self.day_path(date))
     }
@@ -198,6 +207,17 @@ mod tests {
         s.save_day(date(29), &r).unwrap();
         s.save_day(date(20), &r).unwrap();
         assert_eq!(s.list_days(), vec![date(20), date(29)]);
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn delete_removes_a_day_and_reports_whether_there_was_one() {
+        let (s, dir) = temp_store("delete");
+        let r = DayRecord::new(hm(9, 0), hm(17, 40), vec![]);
+        s.save_day(date(29), &r).unwrap();
+        assert_eq!(s.delete_day(date(29)).unwrap(), true);
+        assert_eq!(s.load_day(date(29)).unwrap(), None);
+        assert_eq!(s.delete_day(date(29)).unwrap(), false);
         let _ = fs::remove_dir_all(dir);
     }
 

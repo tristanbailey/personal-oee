@@ -89,7 +89,8 @@ fn an_unknown_command_or_flag_is_a_usage_error_in_json() {
 fn commands_lists_commands_flags_and_all_eight_exit_codes() {
     let v = json(&go(&["commands"]));
     let names: Vec<_> = v["result"]["commands"].as_array().unwrap().iter().map(|c| c["name"].as_str().unwrap()).collect();
-    assert_eq!(names, ["version", "commands", "schema"]);
+    assert_eq!(&names[..3], ["version", "commands", "schema"]);
+    assert!(names.contains(&"day start") && names.contains(&"day delete"));
     let codes: Vec<_> = v["result"]["exit_codes"].as_array().unwrap().iter().map(|c| c["code"].as_i64().unwrap()).collect();
     assert_eq!(codes, [0, 1, 2, 3, 4, 5, 6, 7]);
     let flags: Vec<_> = v["result"]["global_flags"].as_array().unwrap().iter().map(|c| c["name"].as_str().unwrap().to_string()).collect();
