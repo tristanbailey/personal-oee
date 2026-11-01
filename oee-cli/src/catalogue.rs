@@ -20,7 +20,7 @@ pub struct Command {
 pub const COMMANDS: &[Command] = &[
     Command {
         name: "version",
-        summary: "CLI and engine versions",
+        summary: "CLI, engine and data-file format versions",
         writes: false,
         args: &[],
     },
@@ -305,6 +305,7 @@ pub fn schema_for(name: &str) -> Option<Value> {
         "version" => object(&[
             ("cli", string()),
             ("engine", string()),
+            ("data_format", json!({ "type": "integer", "description": "the file format version written to day, calendar and settings files" })),
         ]),
         "commands" => object(&[
             ("commands", array_of(object(&[

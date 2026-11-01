@@ -150,12 +150,22 @@ impl Store {
     }
 }
 
+/// The file format written now. Every saved file carries it as `"version"`.
+/// Files saved before it existed have none and are read as they are; a file
+/// with a higher number was written by a newer program and is refused rather
+/// than guessed at.
+pub const FORMAT_VERSION: u32 = 1;
+
 fn write_json<T: Serialize>(path: &Path, value: &T) -> io::Result<()> {
     if let Some(dir) = path.parent() {
         fs::create_dir_all(dir)?;
     }
     let tmp = path.with_extension("json.tmp");
-    let json = serde_json::to_vec_pretty(value).map_err(io::Error::other)?;
+    let mut doc = serde_json::to_value(value).map_err(io::Error::other)?;
+    if let Some(map) = doc.as_object_mut() {
+        map.insert("version".into(), FORMAT_VERSION.into());
+    }
+    let json = serde_json::to_vec_pretty(&doc).map_err(io::Error::other)?;
     fs::write(&tmp, json)?;
     fs::rename(&tmp, path)
 }
@@ -163,9 +173,18 @@ fn write_json<T: Serialize>(path: &Path, value: &T) -> io::Result<()> {
 /// `Ok(None)` when the file doesn't exist yet.
 fn read_json<T: DeserializeOwned>(path: &Path) -> io::Result<Option<T>> {
     match fs::read(path) {
-        Ok(bytes) => serde_json::from_slice(&bytes)
-            .map(Some)
-            .map_err(io::Error::other),
+        Ok(bytes) => {
+            let doc: serde_json::Value = serde_json::from_slice(&bytes).map_err(io::Error::other)?;
+            if let Some(v) = doc.get("version").and_then(serde_json::Value::as_u64) {
+                if v > u64::from(FORMAT_VERSION) {
+                    return Err(io::Error::other(format!(
+                        "{} was saved by a newer version of Personal OEE (file format {v}, this one reads up to {FORMAT_VERSION})",
+                        path.display()
+                    )));
+                }
+            }
+            serde_json::from_value(doc).map(Some).map_err(io::Error::other)
+        }
         Err(e) if e.kind() == io::ErrorKind::NotFound => Ok(None),
         Err(e) => Err(e),
     }
@@ -184,6 +203,42 @@ mod tests {
 
     fn date(d: u32) -> NaiveDate {
         NaiveDate::from_ymd_opt(2026, 10, d).unwrap()
+    }
+
+    #[test]
+    fn saved_files_carry_a_version_and_older_files_still_load() {
+        let (s, dir) = temp_store("version");
+        let record = DayRecord::new(hm(9, 0), hm(17, 40), vec![]);
+        s.save_day(date(29), &record).unwrap();
+        s.save_settings(&Default::default()).unwrap();
+        s.save_calendar(&WeeklyCalendar::default()).unwrap();
+        for file in ["days/2026-10-29.json", "settings.json", "calendar.json"] {
+            let doc: serde_json::Value = serde_json::from_slice(&fs::read(dir.join(file)).unwrap()).unwrap();
+            assert_eq!(doc["version"], FORMAT_VERSION, "{file}");
+        }
+        // The same files without the field, as older versions saved them.
+        for file in ["days/2026-10-29.json", "settings.json", "calendar.json"] {
+            let mut doc: serde_json::Value = serde_json::from_slice(&fs::read(dir.join(file)).unwrap()).unwrap();
+            doc.as_object_mut().unwrap().remove("version");
+            fs::write(dir.join(file), serde_json::to_vec(&doc).unwrap()).unwrap();
+        }
+        assert_eq!(s.load_day(date(29)).unwrap(), Some(record));
+        assert!(s.load_settings().unwrap().is_some());
+        assert!(s.load_calendar().unwrap().is_some());
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn a_file_from_a_newer_version_is_refused_not_guessed() {
+        let (s, dir) = temp_store("newer");
+        s.save_settings(&Default::default()).unwrap();
+        let path = dir.join("settings.json");
+        let mut doc: serde_json::Value = serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
+        doc["version"] = (FORMAT_VERSION + 1).into();
+        fs::write(&path, serde_json::to_vec(&doc).unwrap()).unwrap();
+        let e = s.load_settings().unwrap_err();
+        assert!(e.to_string().contains("newer version"), "{e}");
+        let _ = fs::remove_dir_all(dir);
     }
 
     #[test]

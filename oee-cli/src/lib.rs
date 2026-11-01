@@ -246,6 +246,7 @@ fn dispatch(command: &Command, ctx: &Context) -> Result<Reply, CliError> {
         Command::Version => Ok(json!({
             "cli": env!("CARGO_PKG_VERSION"),
             "engine": env!("CARGO_PKG_VERSION"),
+            "data_format": oee_store::store::FORMAT_VERSION,
         })
         .into()),
         Command::Commands => Ok(catalogue::commands_result().into()),
