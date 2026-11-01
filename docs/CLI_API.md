@@ -144,7 +144,7 @@ Each row says what the UI does today and which core call backs it, so the CLI ca
 | `office-oee block reset-type --block T` | Go back to what the events and calendar say. | `set_type(None)` |
 | `office-oee block categorise --blocks T,.. --category system-down\|change-over\|idle\|management\|wait` | Categorise lost blocks. | `categorise` / `apply_bulk` |
 | `office-oee block rework --blocks T,.. [--off]` | Mark or unmark Rework. | `set_rework` / `apply_bulk` |
-| `office-oee block note --block T [--text "…"]` | Set a note; omit `--text` to clear. | `set_note` |
+| `office-oee block note --block T [--note "…"]` | Set a note; omit `--note` to clear. | `set_note` |
 | `office-oee block bulk --blocks T,.. (--type … \| --category … \| --rework on\|off)` | One change to many. Returns `{applied, skipped}` and each skipped block with a reason. | `apply_bulk` (D-54) |
 | `office-oee block uncategorised [--date]` | Lost blocks still waiting for a category. | `uncategorised` |
 
@@ -259,7 +259,7 @@ Proposed as a new milestone **M5 — CLI**. Each is test-first, in the same styl
 - [x] **C-03** Clock injection: a `Clock` that is the system clock, `--now`, or `OEE_NOW` (G3). Done when: the same command with the same `--now` gives byte-identical JSON.
 - [x] **C-04** `oee-cli` skeleton: parsing, envelope, error codes, exit codes, `commands`, `schema`, `version`.
 - [x] **C-05** Day lifecycle commands (5.1) with tests against `Tracker`.
-- [ ] **C-06** Block commands (5.2), including bulk with the skipped list.
+- [x] **C-06** Block commands (5.2), including bulk with the skipped list.
 - [ ] **C-07** Calendar and settings commands (5.3).
 - [x] **C-08** Report and export commands (5.4); `report week` equals the Week tab's figures on the Appendix A data (58.4%).
 - [ ] **C-09** `data seed` scenarios, `data reset`, `check` (5.5).

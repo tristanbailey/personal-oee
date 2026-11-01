@@ -5,6 +5,7 @@
 //! returns what to print and the exit code, so every behaviour can be tested
 //! without starting a process.
 
+pub mod block;
 pub mod catalogue;
 pub mod day;
 pub mod output;
@@ -66,6 +67,9 @@ pub enum Command {
     /// The day: start, status, downtime, extend, end, finish, show, list, delete.
     #[command(subcommand)]
     Day(day::DayCommand),
+    /// Blocks: list, set-type, reset-type, categorise, rework, note, bulk, uncategorised.
+    #[command(subcommand)]
+    Block(block::BlockCommand),
     /// Reports: day, week, trends, goal, losses.
     #[command(subcommand)]
     Report(report::ReportCommand),
@@ -81,6 +85,7 @@ impl Command {
             Command::Commands => "commands",
             Command::Schema { .. } => "schema",
             Command::Day(d) => d.name(),
+            Command::Block(b) => b.name(),
             Command::Report(r) => r.name(),
             Command::Export(e) => e.name(),
         }
@@ -211,6 +216,7 @@ fn dispatch(command: &Command, ctx: &Context) -> Result<Reply, CliError> {
                     .hint("Run `office-oee commands` for the list.")
             }),
         Command::Day(d) => day::run(ctx, d),
+        Command::Block(b) => block::run(ctx, b),
         Command::Report(r) => report::run(ctx, r),
         Command::Export(e) => report::export(ctx, e),
     }

@@ -103,6 +103,62 @@ pub const COMMANDS: &[Command] = &[
         args: &[("--yes", "required to confirm")],
     },
     Command {
+        name: "block list",
+        summary: "Every block: start, end, kind, category, rework, note, uncategorised, finished",
+        writes: false,
+        args: &[],
+    },
+    Command {
+        name: "block uncategorised",
+        summary: "Lost blocks still waiting for a category",
+        writes: false,
+        args: &[],
+    },
+    Command {
+        name: "block set-type",
+        summary: "Turn a block into work, lost time, a break or a meeting",
+        writes: true,
+        args: &[("--block <HH:MM>", "the block's start"), ("--type <work|lost|break|meeting>", "new type")],
+    },
+    Command {
+        name: "block reset-type",
+        summary: "Go back to what the day's events and calendar make the block",
+        writes: true,
+        args: &[("--block <HH:MM>", "the block's start")],
+    },
+    Command {
+        name: "block categorise",
+        summary: "Categorise lost blocks; all or none are changed",
+        writes: true,
+        args: &[
+            ("--blocks <T,..|T..T>", "start times, a comma list or a range"),
+            ("--category <system-down|change-over|idle|management|wait>", "the category"),
+        ],
+    },
+    Command {
+        name: "block rework",
+        summary: "Mark Work blocks as Rework (--off unmarks); all or none are changed",
+        writes: true,
+        args: &[("--blocks <T,..|T..T>", "start times"), ("--off", "unmark instead")],
+    },
+    Command {
+        name: "block note",
+        summary: "Set a block's note; no --note clears it",
+        writes: true,
+        args: &[("--block <HH:MM>", "the block's start"), ("--note <TEXT>", "the note")],
+    },
+    Command {
+        name: "block bulk",
+        summary: "One change to many blocks; blocks that can't take it are listed as skipped",
+        writes: true,
+        args: &[
+            ("--blocks <T,..|T..T>", "start times"),
+            ("--type <work|lost|break|meeting>", "or"),
+            ("--category <name>", "or"),
+            ("--rework <on|off>", "exactly one of the three"),
+        ],
+    },
+    Command {
         name: "report day",
         summary: "Availability, Efficiency, Quality, OEE for one day; no record is a holiday",
         writes: false,
@@ -208,6 +264,18 @@ pub fn schema_for(name: &str) -> Option<Value> {
             ("oee", json!({ "type": "number" })),
             ("oee_display", string()),
         ])))]),
+        "block list" => object(&[
+            ("date", string()),
+            ("blocks", json!({ "type": "array", "description": "start, end, kind (work|lost|planned), rework, category, planned_kind, uncategorised, note, finished" })),
+        ]),
+        "block uncategorised" => object(&[
+            ("date", string()),
+            ("count", json!({ "type": "integer" })),
+            ("blocks", json!({ "type": "array", "description": "the same block objects as `block list`" })),
+        ]),
+        "block set-type" | "block reset-type" | "block categorise" | "block rework" | "block note" | "block bulk" => {
+            block_edit_schema(name)
+        }
         "report day" => object(&[
             ("date", string()),
             ("metrics", json!({ "type": "object", "description": "availability, efficiency, quality, oee, over_capacity, status, display" })),
@@ -312,6 +380,28 @@ fn day_state_schema(name: &str) -> Value {
     }
     if name == "day show" {
         fields.push(("record", json!({ "type": "object", "description": "start, end, finalised, planned, downtime, blocks" })));
+    }
+    object(&fields)
+}
+
+/// A block edit returns the day's state plus the blocks it touched.
+fn block_edit_schema(name: &str) -> Value {
+    let mut fields = vec![
+        ("date", string()),
+        ("mode", json!({ "type": "object" })),
+        ("start", string()),
+        ("end", string()),
+        ("finalised", json!({ "type": "boolean" })),
+        ("block", json!({ "type": ["object", "null"] })),
+        ("uncategorised_blocks", json!({ "type": "integer" })),
+        ("metrics", json!({ "type": "object" })),
+        ("inputs", json!({ "type": "object" })),
+        ("saved", json!({ "type": "boolean", "description": "false with --dry-run" })),
+        ("changed", json!({ "type": "array", "description": "the blocks addressed, after the change" })),
+    ];
+    if name == "block bulk" {
+        fields.push(("applied", json!({ "type": "integer" })));
+        fields.push(("skipped", json!({ "type": "array", "description": "start, code (no_such_block|not_lost_time|not_work), reason" })));
     }
     object(&fields)
 }

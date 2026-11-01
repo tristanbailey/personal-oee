@@ -142,7 +142,7 @@ fn require_today(ctx: &Context) -> Result<(), CliError> {
     Ok(())
 }
 
-fn load_tracker(ctx: &Context, o: &Open) -> Result<(Tracker, Vec<Notice>), CliError> {
+pub(crate) fn load_tracker(ctx: &Context, o: &Open) -> Result<(Tracker, Vec<Notice>), CliError> {
     let record = o
         .store
         .load_day(ctx.date)
@@ -155,7 +155,7 @@ fn load_tracker(ctx: &Context, o: &Open) -> Result<(Tracker, Vec<Notice>), CliEr
 }
 
 /// Save unless `--dry-run`. Returns whether anything was written.
-fn save(ctx: &Context, o: &Open, t: &Tracker) -> Result<bool, CliError> {
+pub(crate) fn save(ctx: &Context, o: &Open, t: &Tracker) -> Result<bool, CliError> {
     if ctx.dry_run {
         return Ok(false);
     }
@@ -165,12 +165,12 @@ fn save(ctx: &Context, o: &Open, t: &Tracker) -> Result<bool, CliError> {
     Ok(true)
 }
 
-fn notices_json(n: &[Notice]) -> Vec<Value> {
+pub(crate) fn notices_json(n: &[Notice]) -> Vec<Value> {
     n.iter().map(view::notice_json).collect()
 }
 
 /// The state of the day: what `status` prints and every write returns.
-fn state_json(ctx: &Context, t: &Tracker) -> Value {
+pub(crate) fn state_json(ctx: &Context, t: &Tracker) -> Value {
     let now = now_for(ctx, ctx.date);
     let live = t.live_record(now);
     let inputs = t.inputs_at(now);
@@ -202,7 +202,7 @@ fn state_json(ctx: &Context, t: &Tracker) -> Value {
     })
 }
 
-fn with_saved(mut state: Value, saved: bool) -> Value {
+pub(crate) fn with_saved(mut state: Value, saved: bool) -> Value {
     state["saved"] = json!(saved);
     state
 }
