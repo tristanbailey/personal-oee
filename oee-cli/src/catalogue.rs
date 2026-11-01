@@ -159,6 +159,46 @@ pub const COMMANDS: &[Command] = &[
         ],
     },
     Command {
+        name: "calendar list",
+        summary: "Weekly breaks and meetings with ids; off-grid ones say how they count",
+        writes: false,
+        args: &[],
+    },
+    Command {
+        name: "calendar add",
+        summary: "Add a weekly break or meeting (applies to days started afterwards)",
+        writes: true,
+        args: &[
+            ("--day <mon..sun|mon-fri>", "which day(s)"),
+            ("--from <HH:MM> --to <HH:MM>", "the window"),
+            ("--kind <break|meeting>", "type"),
+            ("--label <NAME>", "optional, at most 40 characters"),
+        ],
+    },
+    Command {
+        name: "calendar remove",
+        summary: "Remove an entry by id",
+        writes: true,
+        args: &[("--id <N>", "from `calendar list`")],
+    },
+    Command {
+        name: "settings get",
+        summary: "Day start, finish, daily target, shortcut and weekly goal",
+        writes: false,
+        args: &[],
+    },
+    Command {
+        name: "settings set",
+        summary: "Change settings with the Settings tab's checks; nothing changes on error",
+        writes: true,
+        args: &[
+            ("--start <HH:MM> --end <HH:MM>", "default day hours"),
+            ("--target <N>", "daily target, 1 to 100"),
+            ("--goal <N|off>", "weekly OEE goal percent, or off"),
+            ("--shortcut <KEYS>", "for example ctrl+alt+D"),
+        ],
+    },
+    Command {
         name: "report day",
         summary: "Availability, Efficiency, Quality, OEE for one day; no record is a holiday",
         writes: false,
@@ -276,6 +316,19 @@ pub fn schema_for(name: &str) -> Option<Value> {
         "block set-type" | "block reset-type" | "block categorise" | "block rework" | "block note" | "block bulk" => {
             block_edit_schema(name)
         }
+        "calendar list" => object(&[("entries", json!({ "type": "array", "description": "id, day, from, to, kind, label, counts_as ({from,to,minutes} or null)" }))]),
+        "calendar add" => object(&[
+            ("added", json!({ "type": "array", "description": "the new entries, as in `calendar list`" })),
+            ("saved", json!({ "type": "boolean" })),
+        ]),
+        "calendar remove" => object(&[("removed", json!({ "type": "object" })), ("saved", json!({ "type": "boolean" }))]),
+        "settings get" | "settings set" => object(&[
+            ("start", string()),
+            ("end", string()),
+            ("target", json!({ "type": "integer" })),
+            ("shortcut", json!({ "type": "object", "description": "label, ctrl, alt, shift, cmd, key" })),
+            ("goal", json!({ "type": "object", "description": "enabled, percent" })),
+        ]),
         "report day" => object(&[
             ("date", string()),
             ("metrics", json!({ "type": "object", "description": "availability, efficiency, quality, oee, over_capacity, status, display" })),

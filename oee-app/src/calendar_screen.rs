@@ -4,7 +4,7 @@ use eframe::egui::{self, RichText};
 use oee_core::timeline::snap;
 use oee_core::{EntryId, PlannedKind, PlannedWindow, Weekday, WeeklyCalendar};
 
-use crate::start::{parse_hhmm, window_line};
+use crate::start::window_line;
 
 pub const NOTE: &str = "Repeats every week. Applies to days you start after a change.";
 pub const EMPTY_DAY: &str = "Nothing planned";
@@ -19,45 +19,7 @@ pub const WEEK: [(Weekday, &str); 7] = [
     (Weekday::Sun, "Sunday"),
 ];
 
-pub const NAME_LIMIT: usize = 40;
-
-/// Which day(s) a new entry applies to.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum DayChoice {
-    Day(Weekday),
-    /// Adds the same entry to Monday to Friday.
-    MonToFri,
-}
-
-impl DayChoice {
-    pub const ALL: [(DayChoice, &'static str); 8] = [
-        (DayChoice::MonToFri, "Mon–Fri"),
-        (DayChoice::Day(Weekday::Mon), "Monday"),
-        (DayChoice::Day(Weekday::Tue), "Tuesday"),
-        (DayChoice::Day(Weekday::Wed), "Wednesday"),
-        (DayChoice::Day(Weekday::Thu), "Thursday"),
-        (DayChoice::Day(Weekday::Fri), "Friday"),
-        (DayChoice::Day(Weekday::Sat), "Saturday"),
-        (DayChoice::Day(Weekday::Sun), "Sunday"),
-    ];
-
-    fn label(self) -> &'static str {
-        Self::ALL.iter().find(|(c, _)| *c == self).map_or("", |(_, l)| l)
-    }
-
-    fn days(self) -> Vec<Weekday> {
-        match self {
-            DayChoice::Day(d) => vec![d],
-            DayChoice::MonToFri => vec![
-                Weekday::Mon,
-                Weekday::Tue,
-                Weekday::Wed,
-                Weekday::Thu,
-                Weekday::Fri,
-            ],
-        }
-    }
-}
+pub use oee_store::calendar::{DayChoice, NAME_LIMIT};
 
 /// The add-entry form (D-33).
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -87,21 +49,8 @@ impl AddForm {
     /// Add the entry (one per day chosen). Returns how many were added. On any
     /// problem nothing is added.
     pub fn add_to(&self, calendar: &mut WeeklyCalendar) -> Result<usize, String> {
-        let time = "Enter times as HH:MM, for example 12:00.";
-        let start = parse_hhmm(&self.from).ok_or(time)?;
-        let end = parse_hhmm(&self.to).ok_or(time)?;
-        if end <= start {
-            return Err("The end time must be after the start time.".into());
-        }
-        let name = self.name.trim();
-        if name.chars().count() > NAME_LIMIT {
-            return Err(format!("Names can be at most {NAME_LIMIT} characters."));
-        }
-        let days = self.day.days();
-        for day in &days {
-            calendar.add(*day, PlannedWindow::new(start, end, self.kind, name));
-        }
-        Ok(days.len())
+        oee_store::calendar::add_entries(calendar, self.day, &self.from, &self.to, self.kind, &self.name)
+            .map(|ids| ids.len())
     }
 }
 

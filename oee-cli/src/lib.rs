@@ -7,6 +7,7 @@
 
 pub mod block;
 pub mod catalogue;
+pub mod config;
 pub mod day;
 pub mod output;
 pub mod report;
@@ -70,6 +71,12 @@ pub enum Command {
     /// Blocks: list, set-type, reset-type, categorise, rework, note, bulk, uncategorised.
     #[command(subcommand)]
     Block(block::BlockCommand),
+    /// The weekly calendar of breaks and meetings: list, add, remove.
+    #[command(subcommand)]
+    Calendar(config::CalendarCommand),
+    /// Settings: get, set.
+    #[command(subcommand)]
+    Settings(config::SettingsCommand),
     /// Reports: day, week, trends, goal, losses.
     #[command(subcommand)]
     Report(report::ReportCommand),
@@ -86,6 +93,8 @@ impl Command {
             Command::Schema { .. } => "schema",
             Command::Day(d) => d.name(),
             Command::Block(b) => b.name(),
+            Command::Calendar(c) => c.name(),
+            Command::Settings(c) => c.name(),
             Command::Report(r) => r.name(),
             Command::Export(e) => e.name(),
         }
@@ -217,6 +226,8 @@ fn dispatch(command: &Command, ctx: &Context) -> Result<Reply, CliError> {
             }),
         Command::Day(d) => day::run(ctx, d),
         Command::Block(b) => block::run(ctx, b),
+        Command::Calendar(c) => config::run_calendar(ctx, c),
+        Command::Settings(c) => config::run_settings(ctx, c),
         Command::Report(r) => report::run(ctx, r),
         Command::Export(e) => report::export(ctx, e),
     }
