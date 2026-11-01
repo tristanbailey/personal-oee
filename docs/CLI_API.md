@@ -262,7 +262,7 @@ Proposed as a new milestone **M5 — CLI**. Each is test-first, in the same styl
 - [x] **C-06** Block commands (5.2), including bulk with the skipped list.
 - [x] **C-07** Calendar and settings commands (5.3).
 - [x] **C-08** Report and export commands (5.4); `report week` equals the Week tab's figures on the Appendix A data (58.4%).
-- [ ] **C-09** `data seed` scenarios, `data reset`, `check` (5.5).
+- [x] **C-09** `data seed` scenarios, `data reset`, `check` (5.5).
 - [ ] **C-10** `sim run` (5.6), with the PRD worked examples as scenario files.
 - [ ] **C-11** App lock file and CLI refusal (section 6, option 3), then, separately, reload of a changed today file in the app.
 - [ ] **C-12** Add a version field to day, calendar and settings files (G8), loading older files unchanged.

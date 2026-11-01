@@ -8,6 +8,7 @@
 pub mod block;
 pub mod catalogue;
 pub mod config;
+pub mod data;
 pub mod day;
 pub mod output;
 pub mod report;
@@ -77,6 +78,11 @@ pub enum Command {
     /// Settings: get, set.
     #[command(subcommand)]
     Settings(config::SettingsCommand),
+    /// Test data: seed a known dataset, or reset.
+    #[command(subcommand)]
+    Data(data::DataCommand),
+    /// Read every file and test the invariants.
+    Check,
     /// Reports: day, week, trends, goal, losses.
     #[command(subcommand)]
     Report(report::ReportCommand),
@@ -95,6 +101,8 @@ impl Command {
             Command::Block(b) => b.name(),
             Command::Calendar(c) => c.name(),
             Command::Settings(c) => c.name(),
+            Command::Data(d) => d.name(),
+            Command::Check => "check",
             Command::Report(r) => r.name(),
             Command::Export(e) => e.name(),
         }
@@ -228,6 +236,8 @@ fn dispatch(command: &Command, ctx: &Context) -> Result<Reply, CliError> {
         Command::Block(b) => block::run(ctx, b),
         Command::Calendar(c) => config::run_calendar(ctx, c),
         Command::Settings(c) => config::run_settings(ctx, c),
+        Command::Data(d) => data::run(ctx, d),
+        Command::Check => data::check(ctx),
         Command::Report(r) => report::run(ctx, r),
         Command::Export(e) => report::export(ctx, e),
     }

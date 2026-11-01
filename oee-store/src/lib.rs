@@ -12,9 +12,11 @@
 //! - [`export_range`]: which dates to export, and writing the CSV files.
 
 pub mod calendar;
+pub mod check;
 pub mod clock;
 pub mod export_range;
 pub mod location;
+pub mod seed;
 pub mod settings;
 pub mod start;
 pub mod store;

@@ -199,6 +199,24 @@ pub const COMMANDS: &[Command] = &[
         ],
     },
     Command {
+        name: "data seed",
+        summary: "Replace the data folder with a known dataset (needs --yes if it holds data)",
+        writes: true,
+        args: &[("--scenario <NAME>", "empty, week4, holiday-week, zero-work-day, over-capacity, uncategorised-day or streak-3")],
+    },
+    Command {
+        name: "data reset",
+        summary: "Delete every saved day, the calendar, settings and UI state",
+        writes: true,
+        args: &[("--yes", "required to confirm")],
+    },
+    Command {
+        name: "check",
+        summary: "Read every file and test the invariants; exit 5 with the findings if any fail",
+        writes: false,
+        args: &[],
+    },
+    Command {
         name: "report day",
         summary: "Availability, Efficiency, Quality, OEE for one day; no record is a holiday",
         writes: false,
@@ -328,6 +346,14 @@ pub fn schema_for(name: &str) -> Option<Value> {
             ("target", json!({ "type": "integer" })),
             ("shortcut", json!({ "type": "object", "description": "label, ctrl, alt, shift, cmd, key" })),
             ("goal", json!({ "type": "object", "description": "enabled, percent" })),
+        ]),
+        "data seed" => object(&[("scenario", string()), ("days", json!({ "type": "array", "description": "the dates written" })), ("saved", json!({ "type": "boolean" }))]),
+        "data reset" => object(&[("removed_files", json!({ "type": "integer" })), ("saved", json!({ "type": "boolean" }))]),
+        "check" => object(&[
+            ("healthy", json!({ "type": "boolean" })),
+            ("files_checked", json!({ "type": "integer" })),
+            ("days_checked", json!({ "type": "integer" })),
+            ("problems", json!({ "type": "array" })),
         ]),
         "report day" => object(&[
             ("date", string()),

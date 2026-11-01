@@ -31,6 +31,36 @@ impl Store {
         crate::location::resolve(&req).ok().map(Self::new)
     }
 
+    pub fn root(&self) -> &Path {
+        &self.root
+    }
+
+    /// Delete every file the app keeps: days, calendar, settings and UI
+    /// state. The folder stays. Returns how many files were removed.
+    pub fn clear(&self) -> io::Result<usize> {
+        let mut removed = 0;
+        let remove = |path: PathBuf| match fs::remove_file(&path) {
+            Ok(()) => Ok(1),
+            Err(e) if e.kind() == io::ErrorKind::NotFound => Ok(0),
+            Err(e) => Err(e),
+        };
+        if let Ok(dir) = fs::read_dir(self.root.join("days")) {
+            for entry in dir.flatten() {
+                removed += remove(entry.path())?;
+            }
+        }
+        for name in ["calendar.json", "settings.json", "ui.json"] {
+            removed += remove(self.root.join(name))?;
+        }
+        Ok(removed)
+    }
+
+    /// True when no day, calendar, settings or UI file is saved.
+    pub fn is_empty(&self) -> bool {
+        let days = fs::read_dir(self.root.join("days")).map_or(0, |d| d.flatten().count());
+        days == 0 && ["calendar.json", "settings.json", "ui.json"].iter().all(|n| !self.root.join(n).exists())
+    }
+
     fn day_path(&self, date: NaiveDate) -> PathBuf {
         self.root.join("days").join(format!("{date}.json"))
     }
