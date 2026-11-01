@@ -9,6 +9,7 @@
 //! - [`tabs`]: the screens and which one was open last.
 //! - [`export_range`]: which dates to export, and writing the CSV files.
 
+pub mod clock;
 pub mod export_range;
 pub mod location;
 pub mod settings;
