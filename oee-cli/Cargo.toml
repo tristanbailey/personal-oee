@@ -1,0 +1,18 @@
+[package]
+name = "oee-cli"
+description = "office-oee: command-line tool for scripting and testing Personal OEE. JSON output by default."
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+
+[[bin]]
+name = "office-oee"
+path = "src/main.rs"
+
+[dependencies]
+oee-core = { path = "../oee-core" }
+oee-store = { path = "../oee-store" }
+clap = { version = "4", features = ["derive"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+chrono = { version = "0.4", default-features = false, features = ["clock"] }
