@@ -9,6 +9,7 @@ mod goal_screen;
 mod grid;
 mod lifecycle;
 mod hotkey;
+mod mini;
 mod notify;
 mod past_day;
 mod practice;
@@ -44,6 +45,8 @@ struct App {
     store: Option<store::Store>,
     /// Held while the app is open, so the command-line tool doesn't write underneath it (C-11).
     lock: Option<oee_store::lock::Lock>,
+    /// The mini widget (D-57) is showing.
+    mini_open: bool,
     /// When today's file was last compared with the screen (C-13).
     last_disk_check: std::time::Instant,
     /// The day being tracked and the JSON last written for it.
@@ -113,6 +116,8 @@ impl App {
             .store
             .as_ref()
             .and_then(|s| oee_store::lock::Lock::acquire(s.root()).ok());
+        // PERSONAL_OEE_MINI=1 opens the mini widget at launch.
+        app.mini_open = std::env::var("PERSONAL_OEE_MINI").is_ok_and(|v| v == "1");
         app.notifier = Some(notify::Notifier::new(ctx.clone()));
         match tray::Tray::new(ctx.clone()) {
             Ok(t) => app.tray = Some(t),
@@ -151,6 +156,7 @@ impl App {
             selection: bulk::Selection::default(),
             store,
             lock: None,
+            mini_open: false,
             last_disk_check: std::time::Instant::now(),
             today,
             last_saved: String::new(),
@@ -543,6 +549,57 @@ impl eframe::App for App {
             tray.update(tray_state);
         }
 
+        if self.mini_open {
+            let view = mini::view(self.tracker.as_ref(), now);
+            let mut act = None;
+            let mut closed = false;
+            ctx.show_viewport_immediate(
+                egui::ViewportId::from_hash_of("mini_widget"),
+                egui::ViewportBuilder::default()
+                    .with_title("Personal OEE mini")
+                    .with_inner_size(mini::SIZE)
+                    .with_always_on_top()
+                    .with_decorations(false)
+                    .with_resizable(false),
+                |mini_ctx, _| {
+                    act = mini::show(mini_ctx, &view);
+                    closed = mini_ctx.input(|i| i.viewport().close_requested());
+                },
+            );
+            if closed {
+                self.mini_open = false;
+            }
+            match act {
+                Some(mini::Action::Toggle) => match self.tracker.as_ref().map(|t| andon::toggle_button(t.mode()).action) {
+                    Some(Some(andon::ToggleAction::ToggleDowntime)) => self.toggle_downtime(now),
+                    Some(Some(andon::ToggleAction::Extend)) => {
+                        if let Some(t) = self.tracker.as_mut() {
+                            let end = t.record.end + 20;
+                            t.extend_to(end, now);
+                        }
+                    }
+                    _ => {}
+                },
+                Some(mini::Action::Rework) => {
+                    if let Some(t) = self.tracker.as_mut() {
+                        mini::toggle_rework(t, now);
+                    }
+                }
+                Some(mini::Action::Categorise(c)) => {
+                    if let Some(t) = self.tracker.as_mut() {
+                        mini::categorise_waiting(t, c);
+                    }
+                }
+                Some(mini::Action::OpenMain) => {
+                    self.window_visible = true;
+                    ctx.send_viewport_cmd(egui::ViewportCommand::Visible(true));
+                    ctx.send_viewport_cmd(egui::ViewportCommand::Focus);
+                }
+                Some(mini::Action::Close) => self.mini_open = false,
+                None => {}
+            }
+        }
+
         egui::TopBottomPanel::top("top").show(ctx, |ui| {
             ui.horizontal(|ui| {
                 ui.heading("Personal OEE");
@@ -556,6 +613,13 @@ impl eframe::App for App {
                             self.past_day = None;
                         }
                     }
+                }
+                if ui
+                    .selectable_label(self.mini_open, "Mini widget")
+                    .on_hover_text("A small always-on-top window with the countdown, Downtime and Rework")
+                    .clicked()
+                {
+                    self.mini_open = !self.mini_open;
                 }
                 // D-45: practice buttons, debug builds only.
                 #[cfg(debug_assertions)]

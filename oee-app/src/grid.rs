@@ -102,7 +102,7 @@ pub fn rows(record: &DayRecord, now: u32, mode: Mode) -> Vec<Row> {
     rows
 }
 
-fn colours(fill: Fill, p: &Palette) -> (Color32, Color32) {
+pub(crate) fn colours(fill: Fill, p: &Palette) -> (Color32, Color32) {
     // (fill, outline)
     match fill {
         Fill::Work => (p.work_soft, p.work),
