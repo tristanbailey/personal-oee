@@ -1,27 +1,15 @@
 //! The Week tab (D-34 onwards): navigation, then pooled figures and the table.
 
-use chrono::{Datelike, Duration, NaiveDate};
+use chrono::{Duration, NaiveDate};
 use eframe::egui::{self, Color32, RichText};
 use oee_core::{
-    day_result, over_capacity_days, week_report, DayInputs, DayRecord, DayStatus, LostCategory, Metrics, Settings,
-    WeekReport, BLOCK_MINUTES,
+    day_result, over_capacity_days, DayInputs, DayRecord, DayStatus, LostCategory, Metrics, Settings, BLOCK_MINUTES,
 };
 
 use crate::theme;
 use crate::tiles::{pct, week_tiles, Tile};
 
-/// The Monday of the week containing `date`.
-pub fn week_start(date: NaiveDate) -> NaiveDate {
-    date - Duration::days(i64::from(date.weekday().num_days_from_monday()))
-}
-
-pub fn prev_week(monday: NaiveDate) -> NaiveDate {
-    monday - Duration::days(7)
-}
-
-pub fn next_week(monday: NaiveDate) -> NaiveDate {
-    monday + Duration::days(7)
-}
+pub use oee_store::weekly::{day_inputs, next_week, prev_week, report, week_start, working_days};
 
 /// "19 Oct – 25 Oct" for the week starting on `monday`.
 pub fn title(monday: NaiveDate) -> String {
@@ -37,38 +25,6 @@ pub fn subline(working_days: usize) -> String {
         1 => "Pooled from 1 working day, holidays left out".into(),
         n => format!("Pooled from {n} working days, holidays left out"),
     }
-}
-
-/// A day with a saved record is a working day.
-pub fn working_days(days: &[(NaiveDate, Option<DayRecord>)]) -> usize {
-    days.iter().filter(|(_, r)| r.is_some()).count()
-}
-
-/// One day's totals. Today's unfinished day counts only what has happened by
-/// `now`, including a stop that is still running; other days count in full.
-pub(crate) fn day_inputs(record: &DayRecord, is_today: bool, now: u32, settings: &Settings) -> DayInputs {
-    if !is_today {
-        return record.inputs(settings);
-    }
-    let mut live = record.clone();
-    if let Some(since) = live.down_since {
-        live.add_downtime(since, now);
-    }
-    live.inputs_until(settings, now)
-}
-
-/// FR-051 to FR-053: the pooled report for the week's saved days.
-pub fn report(
-    days: &[(NaiveDate, Option<DayRecord>)],
-    today: NaiveDate,
-    now: u32,
-    settings: &Settings,
-) -> WeekReport {
-    let inputs: Vec<Option<DayInputs>> = days
-        .iter()
-        .map(|(date, r)| r.as_ref().map(|r| day_inputs(r, *date == today, now, settings)))
-        .collect();
-    week_report(inputs.iter().map(|i| i.as_ref()))
 }
 
 /// The status pill on a table row (D-36).

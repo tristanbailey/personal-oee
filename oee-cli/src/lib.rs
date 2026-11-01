@@ -8,6 +8,7 @@
 pub mod catalogue;
 pub mod day;
 pub mod output;
+pub mod report;
 pub mod view;
 
 use std::path::PathBuf;
@@ -65,6 +66,12 @@ pub enum Command {
     /// The day: start, status, downtime, extend, end, finish, show, list, delete.
     #[command(subcommand)]
     Day(day::DayCommand),
+    /// Reports: day, week, trends, goal, losses.
+    #[command(subcommand)]
+    Report(report::ReportCommand),
+    /// Export CSV files.
+    #[command(subcommand)]
+    Export(report::ExportCommand),
 }
 
 impl Command {
@@ -74,6 +81,8 @@ impl Command {
             Command::Commands => "commands",
             Command::Schema { .. } => "schema",
             Command::Day(d) => d.name(),
+            Command::Report(r) => r.name(),
+            Command::Export(e) => e.name(),
         }
     }
 }
@@ -202,6 +211,8 @@ fn dispatch(command: &Command, ctx: &Context) -> Result<Reply, CliError> {
                     .hint("Run `office-oee commands` for the list.")
             }),
         Command::Day(d) => day::run(ctx, d),
+        Command::Report(r) => report::run(ctx, r),
+        Command::Export(e) => report::export(ctx, e),
     }
 }
 

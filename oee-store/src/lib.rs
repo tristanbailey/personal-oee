@@ -7,6 +7,7 @@
 //! - [`settings`]: day defaults, the downtime shortcut and the weekly goal.
 //! - [`start`]: time parsing and the Not started screen's rules.
 //! - [`tabs`]: the screens and which one was open last.
+//! - [`weekly`]: week, trend and over-capacity figures from saved days.
 //! - [`export_range`]: which dates to export, and writing the CSV files.
 
 pub mod clock;
@@ -16,3 +17,4 @@ pub mod settings;
 pub mod start;
 pub mod store;
 pub mod tabs;
+pub mod weekly;

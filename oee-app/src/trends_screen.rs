@@ -3,11 +3,11 @@
 
 use chrono::{Duration, NaiveDate};
 use eframe::egui::{self, Color32, Pos2, Rect, RichText, Sense, Shape, Stroke, Vec2};
-use oee_core::{weekly_series, DayRecord, Settings, WeekPoint};
+use oee_core::{DayRecord, Settings, WeekPoint};
 
 use crate::theme;
 use crate::tiles::pct;
-use crate::week_screen::{day_inputs, title, week_start};
+use crate::week_screen::{title, week_start};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Range {
@@ -53,21 +53,7 @@ pub fn series(
     series_from(all_days, first_monday(week_start(today), range), today, now, settings)
 }
 
-/// Every working week from `first` (a Monday) up to today.
-pub fn series_from(
-    all_days: &[(NaiveDate, DayRecord)],
-    first: NaiveDate,
-    today: NaiveDate,
-    now: u32,
-    settings: &Settings,
-) -> Vec<WeekPoint<NaiveDate>> {
-    weekly_series(
-        all_days
-            .iter()
-            .filter(|(date, _)| week_start(*date) >= first && *date <= today)
-            .map(|(date, r)| (week_start(*date), Some(day_inputs(r, *date == today, now, settings)))),
-    )
-}
+pub use oee_store::weekly::series_from;
 
 /// The top of the chart: 100%, or higher in steps of 25% when Efficiency
 /// goes over capacity.

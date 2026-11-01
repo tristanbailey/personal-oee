@@ -95,18 +95,18 @@ pub fn run(ctx: &Context, cmd: &DayCommand) -> Result<Reply, CliError> {
 
 // ---- shared helpers -------------------------------------------------------
 
-struct Open {
-    store: Store,
-    settings: AppSettings,
-    calendar: oee_core::WeeklyCalendar,
+pub(crate) struct Open {
+    pub(crate) store: Store,
+    pub(crate) settings: AppSettings,
+    pub(crate) calendar: oee_core::WeeklyCalendar,
 }
 
-fn data_err(what: &str, e: impl std::fmt::Display) -> CliError {
+pub(crate) fn data_err(what: &str, e: impl std::fmt::Display) -> CliError {
     CliError::new(Exit::Data, "data_unreadable", format!("{what}: {e}"))
         .hint("Run `office-oee check` to find the bad file.")
 }
 
-fn open(ctx: &Context, writes: bool) -> Result<Open, CliError> {
+pub(crate) fn open(ctx: &Context, writes: bool) -> Result<Open, CliError> {
     let store = Store::new(ctx.data_folder(writes)?);
     let settings = store
         .load_settings()
@@ -121,7 +121,7 @@ fn open(ctx: &Context, writes: bool) -> Result<Open, CliError> {
 
 /// The minute the engine runs at for `date`: now if it is today, the end of
 /// the day for a past date, the start of the day for a future one.
-fn now_for(ctx: &Context, date: NaiveDate) -> u32 {
+pub(crate) fn now_for(ctx: &Context, date: NaiveDate) -> u32 {
     use std::cmp::Ordering::*;
     match date.cmp(&ctx.now.date) {
         Equal => ctx.now.minutes,
@@ -207,13 +207,13 @@ fn with_saved(mut state: Value, saved: bool) -> Value {
     state
 }
 
-fn parse_time(text: &str, flag: &str) -> Result<u32, CliError> {
+pub(crate) fn parse_time(text: &str, flag: &str) -> Result<u32, CliError> {
     parse_hhmm(text).ok_or_else(|| {
         CliError::usage("bad_time", format!("Couldn't read {flag} \"{text}\". Use HH:MM, for example 17:40."))
     })
 }
 
-fn parse_date(text: &str, flag: &str) -> Result<NaiveDate, CliError> {
+pub(crate) fn parse_date(text: &str, flag: &str) -> Result<NaiveDate, CliError> {
     NaiveDate::parse_from_str(text.trim(), "%Y-%m-%d").map_err(|_| {
         CliError::usage("bad_date", format!("Couldn't read {flag} \"{text}\". Use YYYY-MM-DD, for example 2026-11-02."))
     })
