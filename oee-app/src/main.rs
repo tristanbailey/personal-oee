@@ -44,6 +44,8 @@ struct App {
     store: Option<store::Store>,
     /// Held while the app is open, so the command-line tool doesn't write underneath it (C-11).
     lock: Option<oee_store::lock::Lock>,
+    /// When today's file was last compared with the screen (C-13).
+    last_disk_check: std::time::Instant,
     /// The day being tracked and the JSON last written for it.
     today: NaiveDate,
     last_saved: String,
@@ -149,6 +151,7 @@ impl App {
             selection: bulk::Selection::default(),
             store,
             lock: None,
+            last_disk_check: std::time::Instant::now(),
             today,
             last_saved: String::new(),
             start_input: None,
@@ -351,6 +354,27 @@ impl App {
         }
     }
 
+    /// C-13: if today's file was changed by something else (the command-line
+    /// tool with `--force`) and the app has no unsaved change of its own, show
+    /// the file's version. Returns whether it reloaded.
+    fn reload_if_changed_on_disk(&mut self, now: u32) -> bool {
+        let Some(store) = &self.store else { return false };
+        let Ok(Some(disk)) = store.load_day(self.today) else { return false };
+        let Ok(disk_json) = serde_json::to_string(&disk) else { return false };
+        if disk_json == self.last_saved {
+            return false;
+        }
+        if let Some(t) = &self.tracker {
+            if serde_json::to_string(&t.record).ok().as_deref() != Some(self.last_saved.as_str()) {
+                return false;
+            }
+        }
+        self.last_saved = disk_json;
+        self.tracker = Some(Tracker::resume(disk, self.settings.core, now));
+        self.push_message("Today was changed outside the app. Reloaded it.".into());
+        true
+    }
+
     /// D-14: a new date starts a new record automatically. The old day is
     /// saved first.
     fn roll_over_if_new_day(&mut self, date: NaiveDate, now: u32) {
@@ -467,6 +491,10 @@ impl eframe::App for App {
         }
         self.last_frame = wall;
         self.roll_over_if_new_day(Local::now().date_naive(), now);
+        if self.last_disk_check.elapsed() >= std::time::Duration::from_secs(1) {
+            self.last_disk_check = std::time::Instant::now();
+            self.reload_if_changed_on_disk(now);
+        }
 
         if let Some(t) = self.tracker.as_mut() {
             let notices = t.tick(now);
@@ -854,6 +882,38 @@ mod tests {
         // Coming back to the old date's file later reopens it.
         app.roll_over_if_new_day(date(29), hm(10, 0));
         assert!(app.tracker.is_some());
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn a_change_made_on_disk_is_picked_up_unless_the_app_has_its_own() {
+        let dir = temp_dir("reload");
+        let store = store::Store::new(&dir);
+        let mut app = App::open(Some(store::Store::new(&dir)), date(29), hm(9, 0));
+        assert!(app.tracker.is_none());
+        assert!(!app.reload_if_changed_on_disk(hm(9, 0)));
+
+        // Another program starts the day.
+        let record = oee_core::DayRecord::new(hm(9, 0), hm(17, 40), vec![]);
+        store.save_day(date(29), &record).unwrap();
+        assert!(app.reload_if_changed_on_disk(hm(9, 0)));
+        assert!(app.tracker.is_some());
+        assert!(!app.reload_if_changed_on_disk(hm(9, 0)), "nothing changed since");
+
+        // Another program edits a block; the app shows it.
+        let mut edited = record.clone();
+        edited.set_note(hm(9, 0), Some("from the CLI".into())).unwrap();
+        store.save_day(date(29), &edited).unwrap();
+        assert!(app.reload_if_changed_on_disk(hm(9, 0)));
+        assert_eq!(app.tracker.as_ref().unwrap().record, edited);
+
+        // The app has an unsaved change of its own: the file does not win.
+        app.tracker.as_mut().unwrap().record.set_note(hm(9, 20), Some("mine".into())).unwrap();
+        let mut theirs = edited.clone();
+        theirs.set_note(hm(9, 40), Some("theirs".into())).unwrap();
+        store.save_day(date(29), &theirs).unwrap();
+        assert!(!app.reload_if_changed_on_disk(hm(9, 0)));
+        assert_eq!(app.tracker.as_ref().unwrap().record.blocks()[1].note.as_deref(), Some("mine"));
         let _ = std::fs::remove_dir_all(dir);
     }
 
