@@ -6,7 +6,7 @@ cd "$(dirname "$0")/.." || exit 1
 command -v jq >/dev/null || { echo "jq not found: brew install jq"; exit 1; }
 
 f="${1:-$(ls -t logs/*.jsonl 2>/dev/null | head -1)}"
-[ -z "$f" ] && f=$(ls -t ~/.claude/projects/-Users-tristanbailey-Downloads-personal-oee/*.jsonl 2>/dev/null | head -1)
+[ -z "$f" ] && f=$(ls -t ~/.claude/projects/-Users-tristanbailey-code-personal-oee/*.jsonl 2>/dev/null | head -1)
 [ -z "$f" ] && { echo "No log found"; exit 1; }
 
 echo "Following $f (Ctrl-C to stop)"
