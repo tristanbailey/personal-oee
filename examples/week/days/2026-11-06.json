@@ -1,0 +1,31 @@
+{
+  "down_since": null,
+  "downtime": [],
+  "edits": {
+    "560": {
+      "category": "Idle",
+      "force": "Lost",
+      "note": null,
+      "rework": false
+    },
+    "800": {
+      "category": "Management",
+      "force": "Lost",
+      "note": "1:1",
+      "rework": false
+    }
+  },
+  "end": 900,
+  "finalised": true,
+  "planned": [
+    {
+      "end": 780,
+      "kind": "Break",
+      "label": "Lunch",
+      "start": 720
+    }
+  ],
+  "scored_with": null,
+  "start": 540,
+  "version": 1
+}

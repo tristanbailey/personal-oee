@@ -4,7 +4,7 @@
 //! (and earlier weeks where it says so) with days built from whole blocks.
 
 use chrono::{Duration, NaiveDate};
-use oee_core::{hm, DayRecord, LostCategory, PlannedKind, PlannedWindow};
+use oee_core::{hm, DayRecord, LostCategory, PlannedKind, PlannedWindow, Weekday, WeeklyCalendar};
 use oee_core::LostCategory::{ChangeOver, Idle, Management, SystemDown, Wait};
 
 use crate::weekly::week_start;
@@ -16,18 +16,22 @@ pub const SCENARIOS: &[(&str, &str)] = &[
     ("zero-work-day", "Monday has time logged but no Work (a 0% day); Tuesday is normal"),
     ("over-capacity", "Monday is a 12-hour day of all Work (120% Efficiency); Tuesday is normal"),
     ("uncategorised-day", "Monday is unfinished with three lost blocks waiting for a category"),
+    ("example-week", "A realistic week: lunch and a meeting from the calendar, lost time with notes, Rework, a holiday, a long day and a short one"),
     ("streak-3", "Three weeks in a row over the default 85% goal, the last being the chosen week"),
 ];
 
-/// The saved days a scenario creates. Settings and calendar stay at their defaults.
+/// The saved days a scenario creates, and the weekly calendar if it needs one.
+/// Settings stay at their defaults.
 pub struct Seed {
     pub days: Vec<(NaiveDate, DayRecord)>,
+    pub calendar: WeeklyCalendar,
 }
 
 pub fn build(scenario: &str, date: NaiveDate) -> Option<Seed> {
     let monday = week_start(date);
     let at = |i: i64| monday + Duration::days(i);
     let mut days = Vec::new();
+    let mut calendar = WeeklyCalendar::default();
     match scenario {
         "empty" => {}
         "week4" => {
@@ -62,6 +66,38 @@ pub fn build(scenario: &str, date: NaiveDate) -> Option<Seed> {
             }
             days.push((at(0), d));
         }
+        "example-week" => {
+            let lunch = || PlannedWindow::new(hm(12, 0), hm(13, 0), PlannedKind::Break, "Lunch");
+            let demo = || PlannedWindow::new(hm(14, 0), hm(14, 40), PlannedKind::Meeting, "Team demo");
+            for d in [Weekday::Mon, Weekday::Tue, Weekday::Wed, Weekday::Thu, Weekday::Fri] {
+                calendar.add(d, lunch());
+            }
+            calendar.add(Weekday::Tue, demo());
+            days.push((at(0), example_day(hm(9, 0), hm(17, 40), vec![lunch()], &[
+                Edit::Lost(hm(10, 0), Wait, "Waiting on code review"),
+                Edit::Rework(hm(11, 0), "Redo after review comments"),
+                Edit::Lost(hm(14, 20), ChangeOver, "Switch to the release branch"),
+                Edit::Lost(hm(15, 0), Management, "Planning ran over"),
+                Edit::Lost(hm(15, 20), Management, ""),
+            ])));
+            days.push((at(1), example_day(hm(9, 0), hm(17, 40), vec![lunch(), demo()], &[
+                Edit::Lost(hm(9, 40), SystemDown, "VPN down"),
+                Edit::Lost(hm(10, 0), SystemDown, ""),
+                Edit::Rework(hm(11, 20), ""),
+                Edit::Rework(hm(11, 40), "Fixing the export"),
+                Edit::Lost(hm(16, 20), Idle, ""),
+            ])));
+            // Wednesday is a holiday: no record.
+            days.push((at(3), example_day(hm(9, 0), hm(19, 0), vec![lunch()], &[
+                Edit::Lost(hm(10, 20), ChangeOver, ""),
+                Edit::Rework(hm(15, 0), "Late fix before the release"),
+                Edit::Lost(hm(17, 0), Wait, "Build queue"),
+            ])));
+            days.push((at(4), example_day(hm(9, 0), hm(15, 0), vec![lunch()], &[
+                Edit::Lost(hm(9, 20), Idle, ""),
+                Edit::Lost(hm(13, 20), Management, "1:1"),
+            ])));
+        }
         "streak-3" => {
             for week in [-14, -7, 0] {
                 for i in 0..5 {
@@ -71,7 +107,38 @@ pub fn build(scenario: &str, date: NaiveDate) -> Option<Seed> {
         }
         _ => return None,
     }
-    Some(Seed { days })
+    Some(Seed { days, calendar })
+}
+
+/// One hand-placed change to a day.
+enum Edit {
+    /// A lost block at a start time, with its category and a note ("" for none).
+    Lost(u32, LostCategory, &'static str),
+    /// A Rework block at a start time, with a note ("" for none).
+    Rework(u32, &'static str),
+}
+
+/// A finished day with the given planned windows and hand-placed edits.
+fn example_day(start: u32, end: u32, windows: Vec<PlannedWindow>, edits: &[Edit]) -> DayRecord {
+    let mut record = DayRecord::new(start, end, windows);
+    for edit in edits {
+        let (at, note) = match edit {
+            Edit::Lost(at, category, note) => {
+                record.set_type(*at, Some(oee_core::BlockType::Lost)).expect("block exists");
+                record.categorise(*at, *category).expect("lost block");
+                (*at, *note)
+            }
+            Edit::Rework(at, note) => {
+                record.set_rework(*at, true).expect("work block");
+                (*at, *note)
+            }
+        };
+        if !note.is_empty() {
+            record.set_note(at, Some(note.to_string())).expect("block exists");
+        }
+    }
+    record.finalise();
+    record
 }
 
 /// A day that meets the default goal: three planned blocks, three lost to
@@ -149,6 +216,21 @@ mod tests {
         let inputs: Vec<_> = seed.days.iter().map(|(_, r)| r.inputs(&s)).collect();
         let w = week_report(inputs.iter().map(Some));
         assert_eq!(w.days_counted, 5);
+    }
+
+    #[test]
+    fn the_example_week_is_varied_and_healthy() {
+        let seed = build("example-week", d(4)).unwrap();
+        let dates: Vec<_> = seed.days.iter().map(|(date, _)| *date).collect();
+        assert_eq!(dates, vec![d(2), d(3), d(5), d(6)], "Wednesday is a holiday");
+        assert_eq!(seed.calendar.windows_for(Weekday::Tue).len(), 2);
+        let s = Settings::default();
+        let inputs: Vec<_> = seed.days.iter().map(|(_, r)| r.inputs(&s)).collect();
+        assert!(inputs[0].rework_points == 1 && inputs[1].rework_points == 2);
+        assert!(inputs[2].day_minutes > 520 && inputs[3].day_minutes < 520);
+        assert!(inputs.iter().all(|i| i.downtime_minutes() > 0 && i.planned_minutes > 0));
+        let note = seed.days[0].1.blocks().iter().find(|b| b.start == hm(10, 0)).unwrap().note.clone();
+        assert_eq!(note.as_deref(), Some("Waiting on code review"));
     }
 
     #[test]

@@ -1,0 +1,66 @@
+{
+  "entries": [
+    {
+      "day": "Mon",
+      "id": 0,
+      "window": {
+        "end": 780,
+        "kind": "Break",
+        "label": "Lunch",
+        "start": 720
+      }
+    },
+    {
+      "day": "Tue",
+      "id": 1,
+      "window": {
+        "end": 780,
+        "kind": "Break",
+        "label": "Lunch",
+        "start": 720
+      }
+    },
+    {
+      "day": "Wed",
+      "id": 2,
+      "window": {
+        "end": 780,
+        "kind": "Break",
+        "label": "Lunch",
+        "start": 720
+      }
+    },
+    {
+      "day": "Thu",
+      "id": 3,
+      "window": {
+        "end": 780,
+        "kind": "Break",
+        "label": "Lunch",
+        "start": 720
+      }
+    },
+    {
+      "day": "Fri",
+      "id": 4,
+      "window": {
+        "end": 780,
+        "kind": "Break",
+        "label": "Lunch",
+        "start": 720
+      }
+    },
+    {
+      "day": "Tue",
+      "id": 5,
+      "window": {
+        "end": 880,
+        "kind": "Meeting",
+        "label": "Team demo",
+        "start": 840
+      }
+    }
+  ],
+  "next_id": 6,
+  "version": 1
+}

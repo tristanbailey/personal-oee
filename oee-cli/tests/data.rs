@@ -146,3 +146,37 @@ fn the_catalogue_describes_these_commands() {
         assert_eq!(s.ok(&["schema", n])["ok"], true, "{n}");
     }
 }
+
+#[test]
+fn the_committed_example_week_is_healthy_and_matches_the_seed() {
+    let committed = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../examples/week");
+    let s = Sandbox::new("example");
+    s.ok(&["data", "seed", "--scenario", "example-week"]);
+    // Same files, same bytes: regenerate with the command in examples/README.md after changing the seed.
+    let files = |root: &std::path::Path| {
+        let mut v: Vec<String> = Vec::new();
+        for entry in ["calendar.json", "settings.json"] {
+            v.push(entry.into());
+        }
+        for e in std::fs::read_dir(root.join("days")).unwrap().flatten() {
+            v.push(format!("days/{}", e.file_name().to_string_lossy()));
+        }
+        v.sort();
+        v
+    };
+    assert_eq!(files(&committed), files(&s.dir));
+    for f in files(&s.dir) {
+        assert_eq!(
+            std::fs::read_to_string(committed.join(&f)).unwrap(),
+            std::fs::read_to_string(s.dir.join(&f)).unwrap(),
+            "{f} is out of date"
+        );
+    }
+    // And the app's own checks pass on the committed folder.
+    let o = run(
+        ["office-oee", "--data-dir", committed.to_str().unwrap(), "check"],
+        &Env::default(),
+        Local.with_ymd_and_hms(2026, 11, 6, 8, 0, 0).unwrap(),
+    );
+    assert_eq!(o.exit, 0, "{}", o.stdout);
+}

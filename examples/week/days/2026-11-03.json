@@ -1,0 +1,55 @@
+{
+  "down_since": null,
+  "downtime": [],
+  "edits": {
+    "580": {
+      "category": "SystemDown",
+      "force": "Lost",
+      "note": "VPN down",
+      "rework": false
+    },
+    "600": {
+      "category": "SystemDown",
+      "force": "Lost",
+      "note": null,
+      "rework": false
+    },
+    "680": {
+      "category": null,
+      "force": null,
+      "note": null,
+      "rework": true
+    },
+    "700": {
+      "category": null,
+      "force": null,
+      "note": "Fixing the export",
+      "rework": true
+    },
+    "980": {
+      "category": "Idle",
+      "force": "Lost",
+      "note": null,
+      "rework": false
+    }
+  },
+  "end": 1060,
+  "finalised": true,
+  "planned": [
+    {
+      "end": 780,
+      "kind": "Break",
+      "label": "Lunch",
+      "start": 720
+    },
+    {
+      "end": 880,
+      "kind": "Meeting",
+      "label": "Team demo",
+      "start": 840
+    }
+  ],
+  "scored_with": null,
+  "start": 540,
+  "version": 1
+}

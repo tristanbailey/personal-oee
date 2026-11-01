@@ -14,7 +14,7 @@ use crate::Context;
 pub enum DataCommand {
     /// Fill the data folder with a known dataset around --date's week.
     Seed {
-        /// empty | week4 | holiday-week | zero-work-day | over-capacity | uncategorised-day | streak-3
+        /// empty | week4 | example-week | holiday-week | zero-work-day | over-capacity | uncategorised-day | streak-3
         #[arg(long, value_name = "NAME")]
         scenario: String,
     },
@@ -62,6 +62,11 @@ fn seed_data(ctx: &Context, scenario: &str) -> Result<Reply, CliError> {
         store
             .save_settings(&Default::default())
             .map_err(|e| data_err("Couldn't save settings.json", e))?;
+        if built.calendar != Default::default() {
+            store
+                .save_calendar(&built.calendar)
+                .map_err(|e| data_err("Couldn't save calendar.json", e))?;
+        }
     }
     Ok(json!({ "scenario": scenario, "days": dates, "saved": !ctx.dry_run }).into())
 }

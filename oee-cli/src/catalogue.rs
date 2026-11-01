@@ -208,7 +208,7 @@ pub const COMMANDS: &[Command] = &[
         name: "data seed",
         summary: "Replace the data folder with a known dataset (needs --yes if it holds data)",
         writes: true,
-        args: &[("--scenario <NAME>", "empty, week4, holiday-week, zero-work-day, over-capacity, uncategorised-day or streak-3")],
+        args: &[("--scenario <NAME>", "empty, week4, example-week, holiday-week, zero-work-day, over-capacity, uncategorised-day or streak-3")],
     },
     Command {
         name: "data reset",

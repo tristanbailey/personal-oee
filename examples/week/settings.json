@@ -1,0 +1,19 @@
+{
+  "core": {
+    "base_target": 20,
+    "default_end": 1060,
+    "default_start": 540
+  },
+  "goal": {
+    "enabled": true,
+    "percent": 85
+  },
+  "shortcut": {
+    "alt": true,
+    "cmd": false,
+    "ctrl": true,
+    "key": "D",
+    "shift": false
+  },
+  "version": 1
+}

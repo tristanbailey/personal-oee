@@ -1,0 +1,49 @@
+{
+  "down_since": null,
+  "downtime": [],
+  "edits": {
+    "600": {
+      "category": "Wait",
+      "force": "Lost",
+      "note": "Waiting on code review",
+      "rework": false
+    },
+    "660": {
+      "category": null,
+      "force": null,
+      "note": "Redo after review comments",
+      "rework": true
+    },
+    "860": {
+      "category": "ChangeOver",
+      "force": "Lost",
+      "note": "Switch to the release branch",
+      "rework": false
+    },
+    "900": {
+      "category": "Management",
+      "force": "Lost",
+      "note": "Planning ran over",
+      "rework": false
+    },
+    "920": {
+      "category": "Management",
+      "force": "Lost",
+      "note": null,
+      "rework": false
+    }
+  },
+  "end": 1060,
+  "finalised": true,
+  "planned": [
+    {
+      "end": 780,
+      "kind": "Break",
+      "label": "Lunch",
+      "start": 720
+    }
+  ],
+  "scored_with": null,
+  "start": 540,
+  "version": 1
+}

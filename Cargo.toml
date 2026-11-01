@@ -3,6 +3,6 @@ resolver = "2"
 members = ["oee-core", "oee-store", "oee-cli", "oee-app"]
 
 [workspace.package]
-version = "1.0.1"
+version = "1.0.2"
 edition = "2021"
 authors = ["Tristan"]
