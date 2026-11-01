@@ -1,0 +1,12 @@
+{
+  "description": "PRD FR-049: 14 Work points, 2 Rework -> (14 - 1) / 14 = 92.9% Quality",
+  "date": "2026-11-02",
+  "settings": { "start": "09:00", "end": "13:40" },
+  "steps": [
+    { "at": "09:00", "do": "day.start" },
+    { "at": "13:40", "do": "day.status" },
+    { "do": "block.rework", "blocks": "09:00,09:20" },
+    { "do": "day.finish" }
+  ],
+  "expect": { "quality": 0.929, "work_points": 14, "rework_points": 2 }
+}

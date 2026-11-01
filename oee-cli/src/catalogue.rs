@@ -199,6 +199,12 @@ pub const COMMANDS: &[Command] = &[
         ],
     },
     Command {
+        name: "sim run",
+        summary: "Replay a scripted day (settings, calendar, steps, expect) in a private folder; touches no real data",
+        writes: false,
+        args: &[("<file>", "scenario JSON; steps are {at, do: group.name, flags…}; see docs/CLI_API.md 5.6")],
+    },
+    Command {
         name: "data seed",
         summary: "Replace the data folder with a known dataset (needs --yes if it holds data)",
         writes: true,
@@ -346,6 +352,13 @@ pub fn schema_for(name: &str) -> Option<Value> {
             ("target", json!({ "type": "integer" })),
             ("shortcut", json!({ "type": "object", "description": "label, ctrl, alt, shift, cmd, key" })),
             ("goal", json!({ "type": "object", "description": "enabled, percent" })),
+        ]),
+        "sim run" => object(&[
+            ("date", string()),
+            ("steps", json!({ "type": "array", "description": "step, do, at, ok, result, notices (or error)" })),
+            ("final", json!({ "type": "object", "description": "the `report day` result plus lost_blocks and uncategorised_blocks" })),
+            ("expect", json!({ "type": "object", "description": "per key: expected, actual, pass" })),
+            ("passed", json!({ "type": "boolean" })),
         ]),
         "data seed" => object(&[("scenario", string()), ("days", json!({ "type": "array", "description": "the dates written" })), ("saved", json!({ "type": "boolean" }))]),
         "data reset" => object(&[("removed_files", json!({ "type": "integer" })), ("saved", json!({ "type": "boolean" }))]),

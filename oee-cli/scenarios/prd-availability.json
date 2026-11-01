@@ -1,0 +1,13 @@
+{
+  "description": "PRD FR-044: 520-minute day, 60 min planned, 2 lost blocks (40 min) -> 420/460 = 91.3% Availability",
+  "date": "2026-11-02",
+  "calendar": [ { "day": "mon", "from": "12:00", "to": "13:00", "kind": "break", "label": "Lunch" } ],
+  "steps": [
+    { "at": "09:00", "do": "day.start" },
+    { "at": "10:00", "do": "downtime.start" },
+    { "at": "10:40", "do": "downtime.stop" },
+    { "at": "17:40", "do": "day.status" },
+    { "do": "day.finish" }
+  ],
+  "expect": { "availability": 0.913, "planned_minutes": 60, "downtime_minutes": 40, "lost_blocks": 2, "day_minutes": 520 }
+}

@@ -12,6 +12,7 @@ pub mod data;
 pub mod day;
 pub mod output;
 pub mod report;
+pub mod sim;
 pub mod view;
 
 use std::path::PathBuf;
@@ -78,6 +79,9 @@ pub enum Command {
     /// Settings: get, set.
     #[command(subcommand)]
     Settings(config::SettingsCommand),
+    /// Replay a scripted day from a JSON file in a private folder and check it.
+    #[command(subcommand)]
+    Sim(sim::SimCommand),
     /// Test data: seed a known dataset, or reset.
     #[command(subcommand)]
     Data(data::DataCommand),
@@ -101,6 +105,7 @@ impl Command {
             Command::Block(b) => b.name(),
             Command::Calendar(c) => c.name(),
             Command::Settings(c) => c.name(),
+            Command::Sim(_) => "sim run",
             Command::Data(d) => d.name(),
             Command::Check => "check",
             Command::Report(r) => r.name(),
@@ -141,6 +146,7 @@ pub struct Context {
     pub text: bool,
     pub dry_run: bool,
     pub yes: bool,
+    system: DateTime<Local>,
     data_dir: Option<PathBuf>,
     real: bool,
     env: Env,
@@ -212,6 +218,7 @@ fn context(cli: &Cli, env: &Env, system: DateTime<Local>) -> Result<Context, Cli
         text: cli.text,
         dry_run: cli.dry_run,
         yes: cli.yes,
+        system,
         data_dir: cli.data_dir.clone(),
         real: cli.real,
         env: env.clone(),
@@ -236,6 +243,7 @@ fn dispatch(command: &Command, ctx: &Context) -> Result<Reply, CliError> {
         Command::Block(b) => block::run(ctx, b),
         Command::Calendar(c) => config::run_calendar(ctx, c),
         Command::Settings(c) => config::run_settings(ctx, c),
+        Command::Sim(sim::SimCommand::Run { file }) => sim::run(file, ctx.date, ctx.system),
         Command::Data(d) => data::run(ctx, d),
         Command::Check => data::check(ctx),
         Command::Report(r) => report::run(ctx, r),

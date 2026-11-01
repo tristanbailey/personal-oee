@@ -1,0 +1,15 @@
+{
+  "description": "PRD FR-050: 91.3% x 70% x 92.9% = 59.3% OEE. A day extended to 21:00 (target 30) with 13 planned blocks, 2 lost blocks, 21 Work blocks of which 3 are Rework.",
+  "date": "2026-11-02",
+  "calendar": [ { "day": "mon", "from": "12:00", "to": "16:20", "kind": "meeting", "label": "Workshop" } ],
+  "steps": [
+    { "at": "09:00", "do": "day.start" },
+    { "do": "day.extend", "to": "21:00" },
+    { "at": "10:00", "do": "downtime.start" },
+    { "at": "10:40", "do": "downtime.stop" },
+    { "at": "21:00", "do": "day.status" },
+    { "do": "block.rework", "blocks": "09:00..09:40" },
+    { "do": "day.finish" }
+  ],
+  "expect": { "availability": 0.913, "efficiency": 0.7, "quality": 0.929, "oee": 0.593, "work_points": 21, "target_points": 30, "lost_blocks": 2 }
+}
