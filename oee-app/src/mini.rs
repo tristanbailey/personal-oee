@@ -14,7 +14,12 @@ use crate::grid::{self, Fill};
 use crate::theme;
 use crate::{andon, reminder, tiles};
 
-pub const SIZE: [f32; 2] = [264.0, 232.0];
+/// The widget's width, and the height it opens at. After the first frame it
+/// resizes itself to fit its content.
+pub const WIDTH: f32 = 340.0;
+pub const SIZE: [f32; 2] = [WIDTH, 170.0];
+/// Space the panel's frame adds around the content (10 each side).
+const FRAME: f32 = 20.0;
 
 /// What the user asked for in the widget.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -130,13 +135,13 @@ pub fn categorise_waiting(tracker: &mut Tracker, category: LostCategory) -> u32 
 /// borderless, always-on-top viewport.
 pub fn show(ctx: &egui::Context, v: &View) -> Option<Action> {
     let mut action = None;
-    egui::CentralPanel::default()
+    let used = egui::CentralPanel::default()
         .frame(egui::Frame::none().fill(theme::palette(ctx.style().visuals.dark_mode).surface).inner_margin(10.0))
         .show(ctx, |ui| {
             let p = theme::of(ui);
             // Title row: also the handle for moving the borderless window.
             ui.horizontal(|ui| {
-                let drag = ui.allocate_response(Vec2::new(ui.available_width() - 56.0, 18.0), Sense::click_and_drag());
+                let drag = ui.allocate_response(Vec2::new((ui.available_width() - 70.0).max(40.0), 18.0), Sense::click_and_drag());
                 if drag.drag_started() {
                     ctx.send_viewport_cmd(egui::ViewportCommand::StartDrag);
                 }
@@ -173,8 +178,7 @@ pub fn show(ctx: &egui::Context, v: &View) -> Option<Action> {
                         }
                     }
                 });
-                return;
-            }
+            } else {
             ui.horizontal(|ui| {
                 let (fill, ink) = match v.toggle.tone {
                     andon::Tone::Red => (p.down, p.on_fill),
@@ -199,7 +203,16 @@ pub fn show(ctx: &egui::Context, v: &View) -> Option<Action> {
                     action = Some(Action::Rework);
                 }
             });
-        });
+            }
+            ui.min_rect().height()
+        })
+        .inner;
+    // Fit the window to what it shows: no clipped buttons, no empty space.
+    let want = Vec2::new(WIDTH, (used + FRAME).ceil());
+    let have = ctx.screen_rect().size();
+    if (have.x - want.x).abs() > 1.0 || (have.y - want.y).abs() > 1.0 {
+        ctx.send_viewport_cmd(egui::ViewportCommand::InnerSize(want));
+    }
     action
 }
 
