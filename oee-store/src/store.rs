@@ -24,12 +24,11 @@ impl Store {
         Self { root: root.into() }
     }
 
-    /// The app's folder in Application Support, or `None` if `HOME` isn't set.
+    /// The folder in `OEE_DATA_DIR` if set, else the app's folder in
+    /// Application Support, or `None` if `HOME` isn't set (C-02).
     pub fn default_location() -> Option<Self> {
-        let home = std::env::var_os("HOME")?;
-        Some(Self::new(
-            Path::new(&home).join("Library/Application Support/PersonalOEE"),
-        ))
+        let req = crate::location::from_environment(None, false, false);
+        crate::location::resolve(&req).ok().map(Self::new)
     }
 
     fn day_path(&self, date: NaiveDate) -> PathBuf {

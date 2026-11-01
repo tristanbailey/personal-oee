@@ -255,7 +255,7 @@ office-oee export csv --from 2026-11-02 --to 2026-11-02 --stdout days
 Proposed as a new milestone **M5 — CLI**. Each is test-first, in the same style as M0–M4.
 
 - [x] **C-01** Extract `oee-store` from `oee-app` (G1, G5). *Done: 141 tests before and after (109 in the app, 32 in the new crate); `oee-store` has no egui, hotkey or OS dependencies. The week builders (G7) move in C-08.*
-- [ ] **C-02** Data-dir resolution: `OEE_DATA_DIR`, `--data-dir` and `--real`, with writes refused (exit 7) when none is given (G2). The app honours `OEE_DATA_DIR` too. Done when: a test with a temp dir never touches `~/Library`.
+- [x] **C-02** Data-dir resolution: `OEE_DATA_DIR`, `--data-dir` and `--real`, with writes refused (exit 7) when none is given (G2). The app honours `OEE_DATA_DIR` too. Done when: a test with a temp dir never touches `~/Library`.
 - [ ] **C-03** Clock injection: a `Clock` that is the system clock, `--now`, or `OEE_NOW` (G3). Done when: the same command with the same `--now` gives byte-identical JSON.
 - [ ] **C-04** `oee-cli` skeleton: parsing, envelope, error codes, exit codes, `commands`, `schema`, `version`.
 - [ ] **C-05** Day lifecycle commands (5.1) with tests against `Tracker`.

@@ -10,6 +10,7 @@
 //! - [`export_range`]: which dates to export, and writing the CSV files.
 
 pub mod export_range;
+pub mod location;
 pub mod settings;
 pub mod start;
 pub mod store;
