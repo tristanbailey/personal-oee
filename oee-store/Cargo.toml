@@ -1,0 +1,12 @@
+[package]
+name = "oee-store"
+description = "Personal OEE storage and app-level logic with no UI: saved days, settings, start rules, export ranges."
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+
+[dependencies]
+oee-core = { path = "../oee-core" }
+chrono = { version = "0.4", default-features = false, features = ["clock"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"

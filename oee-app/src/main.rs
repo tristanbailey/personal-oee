@@ -13,13 +13,10 @@ mod notify;
 mod past_day;
 mod practice;
 mod reminder;
-mod start;
 mod settings;
-mod store;
 mod theme;
 mod reopen;
 mod tray;
-mod tabs;
 mod week_screen;
 mod tiles;
 mod trends_screen;
@@ -29,6 +26,8 @@ use eframe::egui;
 use oee_core::{
     day_result, Mode, Notice, Tracker,
 };
+use oee_store::{start, store, tabs};
+use settings::ShortcutExt;
 
 fn now_minutes() -> u32 {
     let t = Local::now();

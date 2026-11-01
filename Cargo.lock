@@ -2750,6 +2750,7 @@ dependencies = [
  "objc2-app-kit 0.2.2",
  "objc2-foundation 0.2.2",
  "oee-core",
+ "oee-store",
  "rfd",
  "serde",
  "serde_json",
@@ -2760,6 +2761,16 @@ dependencies = [
 name = "oee-core"
 version = "0.1.0"
 dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "oee-store"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "oee-core",
  "serde",
  "serde_json",
 ]

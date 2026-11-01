@@ -11,6 +11,7 @@ path = "src/main.rs"
 
 [dependencies]
 oee-core = { path = "../oee-core" }
+oee-store = { path = "../oee-store" }
 eframe = "0.29"
 chrono = { version = "0.4", default-features = false, features = ["clock"] }
 serde = "1"
