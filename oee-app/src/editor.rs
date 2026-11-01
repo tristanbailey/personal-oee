@@ -91,6 +91,17 @@ impl Editor {
         })
     }
 
+    /// Whether the block can be edited now, so it can be picked for a bulk change.
+    pub fn selectable(
+        stored: &DayRecord,
+        live: &DayRecord,
+        block_start: u32,
+        now: u32,
+        mode: Mode,
+    ) -> bool {
+        Self::open(stored, live, block_start, now, mode).is_some_and(|e| e.original != Kind::Running)
+    }
+
     pub fn title(&self) -> &'static str {
         match self.kind {
             Kind::Lost { .. } => "Lost time",

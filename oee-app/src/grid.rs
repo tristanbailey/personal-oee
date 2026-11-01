@@ -1,6 +1,8 @@
 //! The shift log: an hour grid of 20-minute blocks (D-22, D-24).
 
 use eframe::egui::{self, Color32, Pos2, Rect, Sense, Shape, Stroke, Vec2};
+use std::collections::BTreeSet;
+
 use oee_core::{BlockKind, DayRecord, LostCategory, Mode, PlannedKind};
 
 use crate::theme::{self, Palette};
@@ -124,7 +126,7 @@ fn dashed_outline(ui: &egui::Ui, rect: Rect, stroke: Stroke) {
 }
 
 /// Draw one cell. Returns true if it was clicked (future cells can't be).
-fn paint_cell(ui: &mut egui::Ui, size: Vec2, cell: &Cell) -> bool {
+fn paint_cell(ui: &mut egui::Ui, size: Vec2, cell: &Cell, selected: bool) -> bool {
     let sense = if cell.fill == Fill::Future {
         Sense::hover()
     } else {
@@ -164,6 +166,18 @@ fn paint_cell(ui: &mut egui::Ui, size: Vec2, cell: &Cell) -> bool {
     if cell.current {
         ui.painter()
             .rect_stroke(rect, 6.0, Stroke::new(2.5_f32, ui.visuals().strong_text_color()));
+    }
+
+    if selected {
+        ui.painter()
+            .rect_stroke(rect, 6.0, Stroke::new(3.0_f32, pal.accent));
+        ui.painter().text(
+            rect.right_bottom() + Vec2::new(-8.0, -6.0),
+            egui::Align2::RIGHT_BOTTOM,
+            "✓",
+            egui::FontId::proportional(14.0),
+            pal.ink,
+        );
     }
 
     let ink = if cell.fill == Fill::Future { pal.muted } else { pal.ink };
@@ -250,8 +264,16 @@ pub fn show_legend(ui: &mut egui::Ui) {
     });
 }
 
-/// Draw the grid. Returns the start of the block that was clicked, if any.
-pub fn show(ui: &mut egui::Ui, rows: &[Row]) -> Option<u32> {
+/// A click on a block. `multi` is set when Shift or Cmd was held (D-54).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Clicked {
+    pub start: u32,
+    pub multi: bool,
+}
+
+/// Draw the grid, outlining the blocks in `selected`. Returns the block that
+/// was clicked, if any.
+pub fn show(ui: &mut egui::Ui, rows: &[Row], selected: &BTreeSet<u32>) -> Option<Clicked> {
     let mut clicked = None;
     let label_w = 48.0;
     let gap = ui.spacing().item_spacing.x;
@@ -266,8 +288,12 @@ pub fn show(ui: &mut egui::Ui, rows: &[Row]) -> Option<u32> {
             for slot in &row.cells {
                 match slot {
                     Some(cell) => {
-                        if paint_cell(ui, size, cell) {
-                            clicked = Some(cell.start);
+                        if paint_cell(ui, size, cell, selected.contains(&cell.start)) {
+                            let multi = ui.input(|i| i.modifiers.shift || i.modifiers.command);
+                            clicked = Some(Clicked {
+                                start: cell.start,
+                                multi,
+                            });
                         }
                     }
                     None => {

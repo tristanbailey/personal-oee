@@ -663,3 +663,40 @@ fn any_block_can_be_turned_into_planned_time() {
     r.set_type(hm(10, 0), Some(BlockType::Planned(PlannedKind::Break))).unwrap();
     assert!(r.uncategorised().is_empty());
 }
+
+#[test]
+fn bulk_categorise_sets_every_lost_block_in_one_call() {
+    let mut r = day();
+    for h in 9..12 {
+        r.add_downtime(hm(h, 0), hm(h, 20));
+        r.add_downtime(hm(h, 20), hm(h, 40));
+    }
+    let starts = r.uncategorised();
+    assert_eq!(starts.len(), 6);
+    let o = r.apply_bulk(&starts, BulkChange::Category(LostCategory::Wait));
+    assert_eq!(o, BulkOutcome { applied: 6, skipped: 0 });
+    assert!(r.uncategorised().is_empty());
+    assert!(r
+        .blocks()
+        .iter()
+        .filter(|b| starts.contains(&b.start))
+        .all(|b| b.kind == BlockKind::Lost { category: Some(LostCategory::Wait) }));
+}
+
+#[test]
+fn bulk_changes_skip_blocks_that_cannot_take_them() {
+    let mut r = day();
+    r.add_downtime(hm(10, 0), hm(10, 20));
+    let picked = [hm(9, 0), hm(9, 20), hm(10, 0), hm(10, 0), hm(3, 0)];
+    // A category only fits the lost block; duplicates count once, unknowns skip.
+    let o = r.apply_bulk(&picked, BulkChange::Category(LostCategory::Idle));
+    assert_eq!(o, BulkOutcome { applied: 1, skipped: 3 });
+    // Rework only fits Work.
+    let o = r.apply_bulk(&picked, BulkChange::Rework(true));
+    assert_eq!(o, BulkOutcome { applied: 2, skipped: 2 });
+    assert_eq!(r.inputs(&Settings::default()).rework_points, 2);
+    // Type fits every real block.
+    let o = r.apply_bulk(&picked, BulkChange::Type(BlockType::Planned(PlannedKind::Meeting)));
+    assert_eq!(o, BulkOutcome { applied: 3, skipped: 1 });
+    assert_eq!(r.inputs(&Settings::default()).planned_minutes, 60);
+}

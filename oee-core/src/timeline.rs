@@ -41,6 +41,24 @@ pub enum BlockType {
     Planned(PlannedKind),
 }
 
+/// One change applied to several blocks at once (see [`DayRecord::apply_bulk`]).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BulkChange {
+    /// Turn blocks into Work, Lost time or Planned.
+    Type(BlockType),
+    /// Categorise lost blocks only.
+    Category(LostCategory),
+    /// Mark or unmark Work blocks only.
+    Rework(bool),
+}
+
+/// How many of the chosen blocks took a bulk change, and how many couldn't.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct BulkOutcome {
+    pub applied: u32,
+    pub skipped: u32,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BlockKind {
     /// FR-008, FR-019: Work, optionally marked as Rework.
@@ -346,6 +364,26 @@ impl DayRecord {
         self.block_at(block_start)?;
         self.edits.entry(block_start).or_default().note = note.filter(|n| !n.trim().is_empty());
         Ok(())
+    }
+
+    /// Apply one change to many blocks, each as one edit. A block that can't
+    /// take the change (a category on Work, Rework on lost time, an unknown
+    /// start) is skipped and counted; the rest are still changed.
+    pub fn apply_bulk(&mut self, block_starts: &[u32], change: BulkChange) -> BulkOutcome {
+        let mut outcome = BulkOutcome::default();
+        let starts: std::collections::BTreeSet<u32> = block_starts.iter().copied().collect();
+        for s in starts {
+            let done = match change {
+                BulkChange::Type(t) => self.set_type(s, Some(t)),
+                BulkChange::Category(c) => self.categorise(s, c),
+                BulkChange::Rework(r) => self.set_rework(s, r),
+            };
+            match done {
+                Ok(()) => outcome.applied += 1,
+                Err(_) => outcome.skipped += 1,
+            }
+        }
+        outcome
     }
 
     /// Start minutes of lost blocks still waiting for a category (FR-026).

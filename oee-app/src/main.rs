@@ -1,6 +1,7 @@
 //! Personal OEE desktop app: window over `oee-core`'s live tracker.
 
 mod andon;
+mod bulk;
 mod calendar_screen;
 mod editor;
 mod export_screen;
@@ -48,6 +49,8 @@ struct App {
     start_error: Option<String>,
     /// The block editor, when open (D-25).
     editor: Option<editor::Editor>,
+    /// Blocks picked on Today for a bulk change (D-54).
+    selection: bulk::Selection,
     /// The screen showing, remembered between launches (D-29).
     tab: tabs::Tab,
     last_tab: tabs::Tab,
@@ -134,6 +137,7 @@ impl App {
         let mut app = Self {
             tracker: None,
             messages: Vec::new(),
+            selection: bulk::Selection::default(),
             store,
             today,
             last_saved: String::new(),
@@ -693,6 +697,7 @@ impl eframe::App for App {
             let live = t.live_record(now);
             let grid_rows = grid::rows(&live, now, t.mode());
             let mut clicked = None;
+            let mut action = None;
             let mut extend = false;
             let mut end_now = false;
             let ended = t.mode() == Mode::Ended;
@@ -705,8 +710,9 @@ impl eframe::App for App {
             egui::ScrollArea::vertical().show(ui, |ui| {
                 ui.strong(grid::header(&live));
                 grid::show_legend(ui);
+                action = bulk::show(ui, &self.selection, &t.record);
                 ui.add_space(4.0);
-                clicked = grid::show(ui, &grid_rows);
+                clicked = grid::show(ui, &grid_rows, self.selection.starts());
                 ui.add_space(8.0);
                 // D-27: end-of-day controls.
                 ui.horizontal(|ui| {
@@ -723,9 +729,20 @@ impl eframe::App for App {
             if end_now {
                 day_end_notices = t.end_now(now);
             }
-            if let Some(start) = clicked {
-                self.editor =
-                    editor::Editor::open(&t.record, &live, start, now, t.mode());
+            match action {
+                Some(bulk::Action::Apply(change)) => {
+                    self.selection.apply(&mut t.record, change);
+                }
+                Some(bulk::Action::Clear) => self.selection.clear(),
+                None => {}
+            }
+            if let Some(c) = clicked {
+                let selectable =
+                    editor::Editor::selectable(&t.record, &live, c.start, now, t.mode());
+                if self.selection.route(c, selectable) {
+                    self.editor =
+                        editor::Editor::open(&t.record, &live, c.start, now, t.mode());
+                }
             }
         });
 

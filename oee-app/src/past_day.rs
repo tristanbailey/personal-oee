@@ -4,6 +4,7 @@ use chrono::NaiveDate;
 use eframe::egui;
 use oee_core::{day_result, DayRecord, Mode, Settings};
 
+use crate::bulk::{self, Selection};
 use crate::editor::{self, Editor};
 use crate::grid;
 use crate::reminder::{self, CategoriseBanner};
@@ -38,6 +39,8 @@ pub struct PastDay {
     /// The JSON last written, so edits are saved only when something changed.
     pub last_saved: String,
     pub editor: Option<Editor>,
+    /// Blocks picked for a bulk change (D-54).
+    pub selection: Selection,
 }
 
 impl PastDay {
@@ -51,6 +54,7 @@ impl PastDay {
             record,
             last_saved,
             editor: None,
+            selection: Selection::default(),
         }
     }
 
@@ -98,14 +102,26 @@ pub fn show(ctx: &egui::Context, ui: &mut egui::Ui, day: &mut PastDay, settings:
 
     let rows = grid::rows(record, record.end, Mode::Ended);
     let mut clicked = None;
+    let mut action = None;
     egui::ScrollArea::vertical().show(ui, |ui| {
         ui.strong(grid::header(record));
         grid::show_legend(ui);
+        action = bulk::show(ui, &day.selection, record);
         ui.add_space(4.0);
-        clicked = grid::show(ui, &rows);
+        clicked = grid::show(ui, &rows, day.selection.starts());
     });
-    if let Some(start) = clicked {
-        day.editor = Editor::open(record, record, start, record.end, Mode::Ended);
+    match action {
+        Some(bulk::Action::Apply(change)) => {
+            day.selection.apply(record, change);
+        }
+        Some(bulk::Action::Clear) => day.selection.clear(),
+        None => {}
+    }
+    if let Some(c) = clicked {
+        let selectable = Editor::selectable(record, record, c.start, record.end, Mode::Ended);
+        if day.selection.route(c, selectable) {
+            day.editor = Editor::open(record, record, c.start, record.end, Mode::Ended);
+        }
     }
 
     if let Some(mut ed) = day.editor.take() {
