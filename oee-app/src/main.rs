@@ -21,6 +21,7 @@ mod tray;
 mod tabs;
 mod week_screen;
 mod tiles;
+mod trends_screen;
 
 use chrono::{Local, NaiveDate, Timelike};
 use eframe::egui;
@@ -61,6 +62,8 @@ struct App {
     /// The Monday of the week shown on the Week tab (D-34).
     week_monday: NaiveDate,
     week_cache: Option<WeekCache>,
+    /// How many weeks the Week tab's trend chart covers (D-55).
+    trend_range: trends_screen::Range,
     /// The CSV export options on the Week tab (D-52).
     export_form: export_screen::ExportForm,
     /// Every saved day, for the over-capacity list. Refreshed every few seconds.
@@ -153,6 +156,7 @@ impl App {
             week_cache: None,
             export_form: export_screen::ExportForm::default(),
             all_days_cache: None,
+            trend_range: trends_screen::Range::Weeks12,
             past_day: None,
             hotkey: None,
             tray: None,
@@ -527,20 +531,19 @@ impl eframe::App for App {
         }
 
         if self.tab != tabs::Tab::Today {
-            let (week_view, review) = if self.tab == tabs::Tab::Week {
+            let (week_view, review, trend) = if self.tab == tabs::Tab::Week {
                 let (today, now_min) = (self.today, now);
                 let days = self.week_days();
                 let view = week_screen::WeekView::build(days, today, now_min, &core);
-                let review = week_screen::over_capacity_rows(
-                    self.all_days(),
-                    today,
-                    now_min,
-                    &core,
-                );
-                (Some(view), review)
+                let range = self.trend_range;
+                let all = self.all_days();
+                let review = week_screen::over_capacity_rows(all, today, now_min, &core);
+                let trend = trends_screen::series(all, today, now_min, &core, range);
+                (Some(view), review, trend)
             } else {
-                (None, Vec::new())
+                (None, Vec::new(), Vec::new())
             };
+            let today = self.today;
             let monday = self.week_monday;
             let mut go_to = None;
             let mut open_date = None;
@@ -559,6 +562,8 @@ impl eframe::App for App {
                             open_date = week_screen::show_table(ui, v).or(open_date);
                             ui.add_space(10.0);
                             week_screen::show_loss_bars(ui, &v.losses);
+                            ui.add_space(10.0);
+                            trends_screen::show(ui, &mut self.trend_range, &trend, today);
                             ui.add_space(10.0);
                             open_date = week_screen::show_review(ui, &review).or(open_date);
                         });

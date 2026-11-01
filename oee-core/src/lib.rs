@@ -12,6 +12,7 @@
 //! - [`metrics`]: daily Availability, Efficiency, Quality, OEE.
 //! - [`export`]: CSV text for days and blocks.
 //! - [`week`]: pooled weekly figures and report helpers.
+//! - [`trends`]: one pooled result per week, for the trend chart.
 //! - [`calendar`]: the repeating weekly Planned Downtime calendar.
 //! - [`timeline`]: a day's 20-minute blocks, built from downtime events and edits.
 //! - [`tracker`]: the live state machine driven by the shortcut and the clock.
@@ -22,6 +23,7 @@ pub mod export;
 pub mod metrics;
 pub mod rules;
 pub mod timeline;
+pub mod trends;
 pub mod tracker;
 pub mod week;
 
@@ -31,4 +33,5 @@ pub use metrics::{day_result, DayInputs, DayResult, DayStatus, Metrics};
 pub use rules::{hm, lost_blocks, Settings, BLOCK_MINUTES};
 pub use timeline::{Block, BlockKind, BlockType, BulkChange, BulkOutcome, DayRecord, DowntimeEvent, EditError};
 pub use tracker::{Mode, Notice, StopSummary, Toggled, Tracker};
+pub use trends::{weekly_series, WeekPoint};
 pub use week::{over_capacity_days, week_report, WeekReport};

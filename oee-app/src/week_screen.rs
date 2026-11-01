@@ -46,7 +46,7 @@ pub fn working_days(days: &[(NaiveDate, Option<DayRecord>)]) -> usize {
 
 /// One day's totals. Today's unfinished day counts only what has happened by
 /// `now`, including a stop that is still running; other days count in full.
-fn day_inputs(record: &DayRecord, is_today: bool, now: u32, settings: &Settings) -> DayInputs {
+pub(crate) fn day_inputs(record: &DayRecord, is_today: bool, now: u32, settings: &Settings) -> DayInputs {
     if !is_today {
         return record.inputs(settings);
     }
