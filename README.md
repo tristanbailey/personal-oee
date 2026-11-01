@@ -10,6 +10,10 @@ A Mac desktop app that tracks the working day in 20-minute blocks and scores it 
 | Storage (SQLite) | Next |
 | Mac app: window, menu-bar timer, global shortcut, reminders, reports | Next |
 
+## Versions
+
+The current version is in `Cargo.toml`. After each completed change the patch number goes up by 0.0.1 (`scripts/bump-version.sh`); the owner decides when a bigger release is made (PRD NFR-003).
+
 ## Run the tests
 
 You'll need Rust installed (`curl https://sh.rustup.rs -sSf | sh`).

@@ -161,6 +161,7 @@ _Speed, privacy, offline use, platforms._
 
 - **NFR-001** — Desktop application written in **Rust**.
 - **NFR-002** — Must register a **system-wide keyboard shortcut** (FR-011a).
+- **NFR-003** — **Versioning.** The version lives in the workspace `Cargo.toml` (shown by `office-oee version`) and in the app bundle (`scripts/bundle.sh`). After each future task or change is completed, **raise the patch number by 0.0.1** (1.0.0 → 1.0.1 → 1.0.2) in the same commit; `scripts/bump-version.sh` does it. A minor or major release (1.1.0, 2.0.0) is decided by the owner and is never made automatically. The saved-file format (`data_format`) has its own number and changes only when the file layout does.
 
 ## 7. Data Model (draft)
 _Entities and key fields._
@@ -275,3 +276,4 @@ _Weekly totals: 2,600 day min, 550 planned, 400 downtime, 74 points against a ta
 - 2026-10-26 — Planned Downtime counted in whole 20-minute blocks (FR-038); engine updated
 - 2026-10-26 — Shorter day drops the target by 1 per 20 minutes missed (FR-047a); engine updated
 - 2026-11-01 — Weekly OEE goal, status and streak (FR-054)
+- 2026-11-01 — Versioning rule: patch version +0.0.1 after each completed change; the owner decides bigger releases (NFR-003)

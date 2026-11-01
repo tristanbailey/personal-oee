@@ -3,6 +3,7 @@
 **Source:** the web prototype (`web/index.html`, published as the private "Personal OEE" page) and `docs/PRD.md`.
 **Target:** `oee-app` (Rust, eframe/egui 0.29) on top of `oee-core`.
 **Last updated:** 2026-11-01
+**Versioning (NFR-003):** after each task or change is completed, raise the patch version by 0.0.1 in the same commit (`scripts/bump-version.sh`). The owner decides minor and major releases.
 
 Each item has an ID (D-xx), the PRD requirements it covers, and a "Done when" check. Items are grouped into milestones in build order. M0 fixes bugs in what exists today. M1 makes the app usable day to day. M2 brings in the week and calendar screens. M4 adds the efficiency features picked after the first month of use. M3 adds the Mac-only features the prototype had to leave out. M5 adds a command-line tool for agents and tests.
 
