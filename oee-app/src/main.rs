@@ -42,6 +42,8 @@ struct App {
     tracker: Option<Tracker>,
     messages: Vec<String>,
     store: Option<store::Store>,
+    /// Held while the app is open, so the command-line tool doesn't write underneath it (C-11).
+    lock: Option<oee_store::lock::Lock>,
     /// The day being tracked and the JSON last written for it.
     today: NaiveDate,
     last_saved: String,
@@ -105,6 +107,10 @@ impl App {
             Local::now().date_naive(),
             now_minutes(),
         );
+        app.lock = app
+            .store
+            .as_ref()
+            .and_then(|s| oee_store::lock::Lock::acquire(s.root()).ok());
         app.notifier = Some(notify::Notifier::new(ctx.clone()));
         match tray::Tray::new(ctx.clone()) {
             Ok(t) => app.tray = Some(t),
@@ -142,6 +148,7 @@ impl App {
             messages: Vec::new(),
             selection: bulk::Selection::default(),
             store,
+            lock: None,
             today,
             last_saved: String::new(),
             start_input: None,
@@ -435,6 +442,10 @@ impl App {
 }
 
 impl eframe::App for App {
+    fn on_exit(&mut self, _gl: Option<&eframe::glow::Context>) {
+        self.lock = None;
+    }
+
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         ctx.request_repaint_after(std::time::Duration::from_secs(1));
         let now = self.practice.apply(now_minutes());

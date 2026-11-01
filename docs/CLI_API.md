@@ -264,7 +264,7 @@ Proposed as a new milestone **M5 — CLI**. Each is test-first, in the same styl
 - [x] **C-08** Report and export commands (5.4); `report week` equals the Week tab's figures on the Appendix A data (58.4%).
 - [x] **C-09** `data seed` scenarios, `data reset`, `check` (5.5).
 - [x] **C-10** `sim run` (5.6), with the PRD worked examples as scenario files.
-- [ ] **C-11** App lock file and CLI refusal (section 6, option 3), then, separately, reload of a changed today file in the app.
+- [x] **C-11** App lock file and CLI refusal (section 6, option 3), then, separately, reload of a changed today file in the app.
 - [ ] **C-12** Add a version field to day, calendar and settings files (G8), loading older files unchanged.
 
 Suggested order: C-01 (done) → C-02 → C-03 → C-04 → C-05 → C-08 (the read side proves the numbers) → C-06 → C-07 → C-09 → C-10 → C-11 → C-12.

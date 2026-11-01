@@ -272,6 +272,7 @@ pub const GLOBAL_FLAGS: &[(&str, &str)] = &[
     ("--date <YYYY-MM-DD>", "the day to work on; defaults to the date of --now"),
     ("--text", "short human summary instead of JSON"),
     ("--dry-run", "run a write command fully, print the result, save nothing"),
+    ("--force", "write even if the desktop app is open on the same folder (otherwise exit 6)"),
     ("--yes", "confirm a destructive command"),
 ];
 

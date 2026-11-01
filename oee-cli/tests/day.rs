@@ -260,3 +260,21 @@ fn the_same_script_gives_the_same_output() {
     };
     assert_eq!(run_once("det-a"), run_once("det-b"));
 }
+
+#[test]
+fn a_write_is_refused_while_the_app_holds_the_lock_but_reads_and_force_work() {
+    let s = Sandbox::new("lock");
+    s.ok(&["day", "start", "--now", "09:00"]);
+    // The test runner's parent process stands in for the running app.
+    std::fs::write(s.dir.join(".lock"), std::os::unix::process::parent_id().to_string()).unwrap();
+    s.err(&["day", "downtime", "start", "--now", "10:00"], 6, "app_running");
+    s.err(&["block", "note", "--block", "09:00", "--note", "x", "--now", "10:00"], 6, "app_running");
+    // Reads are always allowed.
+    s.ok(&["day", "status", "--now", "10:00"]);
+    s.ok(&["report", "day", "--now", "10:00"]);
+    // --force writes anyway.
+    s.ok(&["day", "downtime", "start", "--now", "10:00", "--force"]);
+    // A lock left by a process that is gone does not block.
+    std::fs::write(s.dir.join(".lock"), "4000000").unwrap();
+    s.ok(&["day", "downtime", "stop", "--now", "10:30"]);
+}

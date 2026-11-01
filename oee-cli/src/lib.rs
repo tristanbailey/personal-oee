@@ -49,6 +49,9 @@ pub struct Cli {
     /// Run a write command fully, print the result, save nothing.
     #[arg(long, global = true)]
     pub dry_run: bool,
+    /// Write even if the desktop app is open on the same folder.
+    #[arg(long, global = true)]
+    pub force: bool,
     /// Confirm a destructive command.
     #[arg(long, global = true)]
     pub yes: bool,
@@ -146,6 +149,7 @@ pub struct Context {
     pub text: bool,
     pub dry_run: bool,
     pub yes: bool,
+    force: bool,
     system: DateTime<Local>,
     data_dir: Option<PathBuf>,
     real: bool,
@@ -162,14 +166,25 @@ impl Context {
             home: self.env.home.clone(),
             writes,
         };
-        location::resolve(&req).map_err(|e| {
+        let folder = location::resolve(&req).map_err(|e| {
             let exit = match e {
                 location::LocationError::Conflict => Exit::Usage,
                 location::LocationError::NeedsChoice => Exit::NoLocation,
                 location::LocationError::NoHome => Exit::Other,
             };
             CliError::new(exit, e.code(), e.message())
-        })
+        })?;
+        if writes && !self.force {
+            if let Some(pid) = oee_store::lock::held_by_other(&folder) {
+                return Err(CliError::new(
+                    Exit::AppRunning,
+                    "app_running",
+                    format!("Personal OEE is open on {} (process {pid}), so this write was refused.", folder.display()),
+                )
+                .hint("Quit the app, use a test folder with --data-dir, or add --force to write anyway."));
+            }
+        }
+        Ok(folder)
     }
 
     fn stamp(&self) -> Stamp {
@@ -218,6 +233,7 @@ fn context(cli: &Cli, env: &Env, system: DateTime<Local>) -> Result<Context, Cli
         text: cli.text,
         dry_run: cli.dry_run,
         yes: cli.yes,
+        force: cli.force,
         system,
         data_dir: cli.data_dir.clone(),
         real: cli.real,
