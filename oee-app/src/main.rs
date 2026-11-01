@@ -5,6 +5,7 @@ mod bulk;
 mod calendar_screen;
 mod editor;
 mod export_screen;
+mod goal_screen;
 mod grid;
 mod lifecycle;
 mod hotkey;
@@ -531,7 +532,8 @@ impl eframe::App for App {
         }
 
         if self.tab != tabs::Tab::Today {
-            let (week_view, review, trend) = if self.tab == tabs::Tab::Week {
+            let goal = self.settings.goal.active();
+            let (week_view, review, trend, streak) = if self.tab == tabs::Tab::Week {
                 let (today, now_min) = (self.today, now);
                 let days = self.week_days();
                 let view = week_screen::WeekView::build(days, today, now_min, &core);
@@ -539,9 +541,14 @@ impl eframe::App for App {
                 let all = self.all_days();
                 let review = week_screen::over_capacity_rows(all, today, now_min, &core);
                 let trend = trends_screen::series(all, today, now_min, &core, range);
-                (Some(view), review, trend)
+                // The streak looks back over every saved week, not just the chart's range.
+                let streak = goal.map_or(0, |g| {
+                    let every = trends_screen::series_from(all, NaiveDate::MIN, today, now_min, &core);
+                    oee_core::goal_streak(&every, g, week_screen::week_start(today))
+                });
+                (Some(view), review, trend, streak)
             } else {
-                (None, Vec::new(), Vec::new())
+                (None, Vec::new(), Vec::new(), 0)
             };
             let today = self.today;
             let monday = self.week_monday;
@@ -558,12 +565,17 @@ impl eframe::App for App {
                         egui::ScrollArea::vertical().show(ui, |ui| {
                             ui.add_space(6.0);
                             tiles::show(ui, &v.tiles);
+                            if let Some(g) = goal {
+                                ui.add_space(6.0);
+                                let line = goal_screen::line(g, v.oee, v.working_days, monday, today, streak);
+                                goal_screen::show(ui, &line);
+                            }
                             ui.add_space(10.0);
                             open_date = week_screen::show_table(ui, v).or(open_date);
                             ui.add_space(10.0);
                             week_screen::show_loss_bars(ui, &v.losses);
                             ui.add_space(10.0);
-                            trends_screen::show(ui, &mut self.trend_range, &trend, today);
+                            trends_screen::show(ui, &mut self.trend_range, &trend, today, goal);
                             ui.add_space(10.0);
                             open_date = week_screen::show_review(ui, &review).or(open_date);
                         });

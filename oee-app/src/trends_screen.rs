@@ -50,7 +50,17 @@ pub fn series(
     settings: &Settings,
     range: Range,
 ) -> Vec<WeekPoint<NaiveDate>> {
-    let first = first_monday(week_start(today), range);
+    series_from(all_days, first_monday(week_start(today), range), today, now, settings)
+}
+
+/// Every working week from `first` (a Monday) up to today.
+pub fn series_from(
+    all_days: &[(NaiveDate, DayRecord)],
+    first: NaiveDate,
+    today: NaiveDate,
+    now: u32,
+    settings: &Settings,
+) -> Vec<WeekPoint<NaiveDate>> {
     weekly_series(
         all_days
             .iter()
@@ -101,7 +111,15 @@ fn nearest(xs: &[f32], x: f32, step: f32) -> Option<usize> {
 const EMPTY: &str = "No working weeks in this range yet.";
 
 /// Draw the heading, range buttons and chart.
-pub fn show(ui: &mut egui::Ui, range: &mut Range, points: &[WeekPoint<NaiveDate>], today: NaiveDate) {
+/// `goal` is the weekly OEE goal in percent, drawn as a dashed line; `None`
+/// draws nothing (FR-054).
+pub fn show(
+    ui: &mut egui::Ui,
+    range: &mut Range,
+    points: &[WeekPoint<NaiveDate>],
+    today: NaiveDate,
+    goal: Option<u32>,
+) {
     ui.horizontal(|ui| {
         ui.heading("Trends");
         for r in Range::ALL {
@@ -135,6 +153,17 @@ pub fn show(ui: &mut egui::Ui, range: &mut Range, points: &[WeekPoint<NaiveDate>
         let (rect, _) = ui.allocate_exact_size(Vec2::splat(12.0), Sense::hover());
         diamond(ui, rect.center(), 5.0, pal.change);
         ui.label(RichText::new("Over capacity").small());
+        if goal.is_some() {
+            ui.add_space(6.0);
+            let (rect, _) = ui.allocate_exact_size(Vec2::new(16.0, 10.0), Sense::hover());
+            ui.painter().extend(Shape::dashed_line(
+                &[rect.left_center(), rect.right_center()],
+                Stroke::new(1.5_f32, pal.accent),
+                4.0,
+                3.0,
+            ));
+            ui.label(RichText::new("Goal").small());
+        }
     });
 
     let weeks = range.weeks();
@@ -182,6 +211,24 @@ pub fn show(ui: &mut egui::Ui, range: &mut Range, points: &[WeekPoint<NaiveDate>
             Pos2::new(plot.left() + (i as f32 + 0.5) * step, plot.bottom() + 4.0),
             egui::Align2::CENTER_TOP,
             monday.format("%-d %b").to_string(),
+            egui::FontId::monospace(10.0),
+            pal.muted,
+        );
+    }
+
+    if let Some(g) = goal {
+        let y = y_of(f64::from(g) / 100.0);
+        let stroke = Stroke::new(1.5_f32, pal.accent);
+        ui.painter().extend(Shape::dashed_line(
+            &[Pos2::new(plot.left(), y), Pos2::new(plot.right(), y)],
+            stroke,
+            6.0,
+            4.0,
+        ));
+        ui.painter().text(
+            Pos2::new(plot.right() - 2.0, y - 2.0),
+            egui::Align2::RIGHT_BOTTOM,
+            format!("Goal {g}%"),
             egui::FontId::monospace(10.0),
             pal.muted,
         );

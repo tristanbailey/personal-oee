@@ -316,6 +316,8 @@ pub fn show_review(ui: &mut egui::Ui, rows: &[ReviewRow]) -> Option<NaiveDate> {
 #[derive(Debug, Clone, PartialEq)]
 pub struct WeekView {
     pub working_days: usize,
+    /// The week's pooled OEE, for the goal (FR-054).
+    pub oee: f64,
     pub tiles: [Tile; 4],
     pub rows: Vec<TableRow>,
     pub total: TableRow,
@@ -359,6 +361,7 @@ impl WeekView {
         let [a, e, q, o] = row_values(&rep.metrics);
         WeekView {
             working_days: working_days(days),
+            oee: rep.metrics.oee,
             losses: loss_bars(&rep.totals),
             tiles: week_tiles(&rep),
             rows,

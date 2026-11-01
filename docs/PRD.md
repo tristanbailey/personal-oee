@@ -147,6 +147,14 @@ _All lost time is a time loss (FR-023), so every category reduces Availability t
   - Weekly Quality uses the summed Work and Rework points.
 - **FR-052** — **Holidays are excluded** from weekly figures, so the week simply has one day fewer.
 - **FR-053** — If **every day** in the week is a holiday, all weekly values are **0**.
+- **FR-054** — **Weekly OEE goal.** The user sets a weekly OEE goal in Settings (default **85%**) or turns it off. The week's pooled OEE (FR-051) is compared with it at the one decimal shown, so 79.96% reads as 80.0% and meets an 80% goal.
+  - **Met** — pooled OEE is at or above the goal.
+  - **On track** — not met yet, the week is still in progress (it contains today), and pooled OEE is within 5 percentage points of the goal.
+  - **Behind** — not met yet, the week is in progress, and pooled OEE is more than 5 points under the goal.
+  - **Not met** — the week has finished under the goal.
+  - A week with no counted days has no status (FR-052, FR-053).
+  - **Streak** — the number of weeks in a row that met the goal, counting back from the latest week. Weeks with no counted days are skipped: they neither count nor break the streak. The current week counts when it is Met; while it is not met it is ignored, because it isn't finished. Any finished week that is Not met ends the streak.
+  - With the goal off, nothing about it is shown: no status, streak or goal line on the trend chart (FR-041). Settings files saved before this requirement load with the default goal.
 
 ## 6. Non-Functional Requirements
 _Speed, privacy, offline use, platforms._
@@ -266,3 +274,4 @@ _Weekly totals: 2,600 day min, 550 planned, 400 downtime, 74 points against a ta
 - 2026-10-26 — Engine v0.1 built and tested. Corrected FR-050 example to 59.3%. Added Q33, Q34 and implementation notes.
 - 2026-10-26 — Planned Downtime counted in whole 20-minute blocks (FR-038); engine updated
 - 2026-10-26 — Shorter day drops the target by 1 per 20 minutes missed (FR-047a); engine updated
+- 2026-11-01 — Weekly OEE goal, status and streak (FR-054)
