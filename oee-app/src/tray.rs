@@ -1,13 +1,14 @@
 //! The menu-bar item (D-41): a coloured dot for the mode, the minutes that
 //! matter, and a small menu.
 
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU8, Ordering};
 use std::sync::Arc;
 
 use eframe::egui;
 use oee_core::{Mode, Tracker, BLOCK_MINUTES};
+use oee_store::tabs::Tab;
 use tray_icon::menu::accelerator::{Accelerator, Code, Modifiers};
-use tray_icon::menu::{Menu, MenuEvent, MenuItem, PredefinedMenuItem, Submenu};
+use tray_icon::menu::{CheckMenuItem, Menu, MenuEvent, MenuId, MenuItem, PredefinedMenuItem, Submenu};
 use tray_icon::{Icon, TrayIcon, TrayIconBuilder};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -106,6 +107,11 @@ pub struct Actions {
     pub toggle: bool,
     pub open: bool,
     pub quit: bool,
+    /// A screen picked from the View menu or Settings… (the window should
+    /// come forward showing it).
+    pub show_tab: Option<Tab>,
+    /// Mini widget picked from the Window menu.
+    pub mini: bool,
 }
 
 #[derive(Default)]
@@ -113,6 +119,17 @@ struct Flags {
     toggle: AtomicBool,
     open: AtomicBool,
     quit: AtomicBool,
+    /// 0 = none, otherwise the position of the tab in `Tab::ALL` plus one.
+    tab: AtomicU8,
+    mini: AtomicBool,
+}
+
+fn encode_tab(tab: Tab) -> u8 {
+    Tab::ALL.iter().position(|t| *t == tab).map_or(0, |i| i as u8 + 1)
+}
+
+fn decode_tab(code: u8) -> Option<Tab> {
+    usize::from(code).checked_sub(1).and_then(|i| Tab::ALL.get(i).copied())
 }
 
 pub struct Tray {
@@ -122,25 +139,49 @@ pub struct Tray {
     shown: Option<TrayState>,
     /// Kept alive so the app's own menu bar stays in place (D-47).
     _app_menu: Menu,
+    /// The Window menu's Mini widget item, ticked while the widget is open.
+    mini: CheckMenuItem,
+    mini_shown: Option<bool>,
 }
 
-/// The app's own menu bar (D-47): an "Open Personal OEE" item in the app menu
-/// and a Window menu entry, so there is always an obvious way back after the
-/// window is closed. Quit goes through the same flag as the menu-bar item, so
-/// it really quits instead of just hiding the window (D-43).
-fn app_menu(open_ids: &mut Vec<tray_icon::menu::MenuId>, quit_id: &mut Option<tray_icon::menu::MenuId>) -> Result<Menu, String> {
+/// The ids of the app menu's items, so the event handler can tell them apart.
+#[derive(Default)]
+struct AppIds {
+    open: Vec<MenuId>,
+    quit: Option<MenuId>,
+    tabs: Vec<(MenuId, Tab)>,
+    mini: Option<MenuId>,
+}
+
+/// The app's own menu bar (D-47): the app menu with Settings…, a View menu
+/// with the screens, and a Window menu with the mini widget, so the window's
+/// actions are all reachable from the menu bar, including after the window is
+/// closed. Quit goes through the same flag as the menu-bar item, so it really
+/// quits instead of just hiding the window (D-43).
+fn app_menu(ids: &mut AppIds) -> Result<(Menu, CheckMenuItem), String> {
     let err = |e: tray_icon::menu::Error| e.to_string();
     let cmd = |code| Some(Accelerator::new(Some(Modifiers::SUPER), code));
     let open_app = MenuItem::new("Open Personal OEE", true, cmd(Code::KeyO));
     let open_window = MenuItem::new("Personal OEE", true, cmd(Code::Digit0));
     let quit = MenuItem::new("Quit Personal OEE", true, cmd(Code::KeyQ));
-    open_ids.push(open_app.id().clone());
-    open_ids.push(open_window.id().clone());
-    *quit_id = Some(quit.id().clone());
+    let settings = MenuItem::new("Settings…", true, cmd(Code::Comma));
+    let mini = CheckMenuItem::new(
+        "Mini widget",
+        true,
+        false,
+        Some(Accelerator::new(Some(Modifiers::SUPER | Modifiers::SHIFT), Code::KeyM)),
+    );
+    ids.open.push(open_app.id().clone());
+    ids.open.push(open_window.id().clone());
+    ids.quit = Some(quit.id().clone());
+    ids.tabs.push((settings.id().clone(), Tab::Settings));
+    ids.mini = Some(mini.id().clone());
 
     let app = Submenu::new("Personal OEE", true);
     app.append_items(&[
         &PredefinedMenuItem::about(None, None),
+        &PredefinedMenuItem::separator(),
+        &settings,
         &PredefinedMenuItem::separator(),
         &open_app,
         &PredefinedMenuItem::separator(),
@@ -151,22 +192,31 @@ fn app_menu(open_ids: &mut Vec<tray_icon::menu::MenuId>, quit_id: &mut Option<tr
         &quit,
     ])
     .map_err(err)?;
+
+    let view = Submenu::new("View", true);
+    for (tab, code) in [(Tab::Today, Code::Digit1), (Tab::Week, Code::Digit2), (Tab::Calendar, Code::Digit3)] {
+        let item = MenuItem::new(tab.label(), true, cmd(code));
+        ids.tabs.push((item.id().clone(), tab));
+        view.append(&item).map_err(err)?;
+    }
+
     let window = Submenu::new("Window", true);
     window
         .append_items(&[
             &open_window,
+            &mini,
             &PredefinedMenuItem::separator(),
             &PredefinedMenuItem::minimize(None),
         ])
         .map_err(err)?;
     let menu = Menu::new();
-    menu.append_items(&[&app, &window]).map_err(err)?;
+    menu.append_items(&[&app, &view, &window]).map_err(err)?;
     #[cfg(target_os = "macos")]
     {
         menu.init_for_nsapp();
         window.set_as_windows_menu_for_nsapp();
     }
-    Ok(menu)
+    Ok((menu, mini))
 }
 
 impl Tray {
@@ -179,19 +229,26 @@ impl Tray {
         menu.append_items(&[&toggle, &open, &PredefinedMenuItem::separator(), &quit])
             .map_err(|e| e.to_string())?;
 
-        let mut open_ids = vec![open.id().clone()];
-        let mut app_quit_id = None;
-        let app_menu = app_menu(&mut open_ids, &mut app_quit_id)?;
+        let mut ids = AppIds::default();
+        ids.open.push(open.id().clone());
+        let (app_menu, mini) = app_menu(&mut ids)?;
 
         let flags = Arc::new(Flags::default());
         let (f, toggle_id, quit_id) = (flags.clone(), toggle.id().clone(), quit.id().clone());
         MenuEvent::set_event_handler(Some(move |e: MenuEvent| {
+            if let Some((_, tab)) = ids.tabs.iter().find(|(id, _)| *id == e.id) {
+                f.tab.store(encode_tab(*tab), Ordering::SeqCst);
+                ctx.request_repaint();
+                return;
+            }
             let flag = if e.id == toggle_id {
                 &f.toggle
-            } else if open_ids.contains(&e.id) {
+            } else if ids.open.contains(&e.id) {
                 &f.open
-            } else if e.id == quit_id || Some(&e.id) == app_quit_id.as_ref() {
+            } else if e.id == quit_id || Some(&e.id) == ids.quit.as_ref() {
                 &f.quit
+            } else if Some(&e.id) == ids.mini.as_ref() {
+                &f.mini
             } else {
                 return;
             };
@@ -211,6 +268,8 @@ impl Tray {
             flags,
             shown: None,
             _app_menu: app_menu,
+            mini,
+            mini_shown: None,
         })
     }
 
@@ -220,6 +279,16 @@ impl Tray {
             toggle: self.flags.toggle.swap(false, Ordering::SeqCst),
             open: self.flags.open.swap(false, Ordering::SeqCst),
             quit: self.flags.quit.swap(false, Ordering::SeqCst),
+            show_tab: decode_tab(self.flags.tab.swap(0, Ordering::SeqCst)),
+            mini: self.flags.mini.swap(false, Ordering::SeqCst),
+        }
+    }
+
+    /// Tick the Mini widget menu item while the widget is open.
+    pub fn set_mini_open(&mut self, open: bool) {
+        if self.mini_shown != Some(open) {
+            self.mini.set_checked(open);
+            self.mini_shown = Some(open);
         }
     }
 
@@ -248,6 +317,15 @@ impl Tray {
 mod tests {
     use super::*;
     use oee_core::{hm, PlannedKind, PlannedWindow, Settings};
+
+    #[test]
+    fn menu_tab_picks_survive_the_round_trip_through_a_flag() {
+        for tab in Tab::ALL {
+            assert_eq!(decode_tab(encode_tab(tab)), Some(tab));
+        }
+        assert_eq!(decode_tab(0), None);
+        assert_eq!(decode_tab(99), None);
+    }
 
     fn tracker() -> Tracker {
         Tracker::start_day(hm(9, 0), vec![], Settings::default())

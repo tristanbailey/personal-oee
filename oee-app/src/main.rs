@@ -527,7 +527,17 @@ impl eframe::App for App {
         }
         let clicked = self.notifier.as_ref().is_some_and(|n| n.take_open());
         let dock = reopen::should_show(reopen::take_requested(), self.window_visible);
-        if menu.open || clicked || dock {
+        // The View menu and Settings… show a screen, with the window forward.
+        if let Some(tab) = menu.show_tab {
+            self.tab = tab;
+            if tab == tabs::Tab::Today {
+                self.past_day = None;
+            }
+        }
+        if menu.mini {
+            self.mini_open = !self.mini_open;
+        }
+        if menu.open || menu.show_tab.is_some() || clicked || dock {
             self.window_visible = true;
             ctx.send_viewport_cmd(egui::ViewportCommand::Visible(true));
             ctx.send_viewport_cmd(egui::ViewportCommand::Focus);
@@ -547,6 +557,7 @@ impl eframe::App for App {
         let tray_state = tray::tray_state(self.tracker.as_ref(), now);
         if let Some(tray) = self.tray.as_mut() {
             tray.update(tray_state);
+            tray.set_mini_open(self.mini_open);
         }
 
         if self.mini_open {
