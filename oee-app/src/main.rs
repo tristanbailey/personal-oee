@@ -54,6 +54,8 @@ struct App {
     last_saved: String,
     /// Text in the start-time field on the Not started screen.
     start_input: Option<String>,
+    /// The time typed in "Remove blocks before".
+    trim_input: String,
     start_error: Option<String>,
     /// The block editor, when open (D-25).
     editor: Option<editor::Editor>,
@@ -161,6 +163,7 @@ impl App {
             today,
             last_saved: String::new(),
             start_input: None,
+            trim_input: String::new(),
             start_error: None,
             editor: None,
             tab,
@@ -834,6 +837,7 @@ impl eframe::App for App {
             let mut clicked = None;
             let mut action = None;
             let mut extend = false;
+            let mut trim = false;
             let mut end_now = false;
             let ended = t.mode() == Mode::Ended;
             if let Some(banner) = reminder::categorise_banner(t) {
@@ -856,10 +860,32 @@ impl eframe::App for App {
                         end_now = ui.button("End day now").clicked();
                     }
                 });
+                // Remove blocks at the start of the day (e.g. a day started too early).
+                ui.horizontal(|ui| {
+                    ui.label("Remove blocks before");
+                    ui.add(
+                        egui::TextEdit::singleline(&mut self.trim_input)
+                            .hint_text("09:00")
+                            .desired_width(60.0),
+                    );
+                    trim = ui.button("Remove").clicked();
+                });
             });
             if extend {
                 let end = t.record.end + 20;
                 t.extend_to(end, now);
+            }
+            if trim {
+                match start::parse_hhmm(&self.trim_input) {
+                    None => self.messages.push("Enter the time as HH:MM, for example 09:00.".into()),
+                    Some(at) => match t.trim_start_to(at) {
+                        Ok(()) => {
+                            self.messages.push(format!("Removed the blocks before {}.", hhmm(at)));
+                            self.trim_input.clear();
+                        }
+                        Err(e) => self.messages.push(format!("Couldn't remove blocks: {e}.")),
+                    },
+                }
             }
             if end_now {
                 day_end_notices = t.end_now(now);

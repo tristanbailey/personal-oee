@@ -129,6 +129,7 @@ Each row says what the UI does today and which core call backs it, so the CLI ca
 | `office-oee day toggle` | Downtime ⇄ Work. Returns the stop summary when a stop ends. | `toggle_downtime_report` | Same message data as D-18: `{minutes, lost_blocks}`. Refused during Planned or after the day ends. |
 | `office-oee day downtime start` / `stop` | Explicit forms of the toggle. Refuse if already in that state. | `toggle_downtime_report` | Safer for agents than a blind toggle. Preferred in scripts. |
 | `office-oee day extend --to HH:MM` | Move the finish later; reopens an ended day. | `extend_to` | FR-006. |
+| `office-oee day trim --from HH:MM` | Remove the blocks before a time; the day starts there. Edits and stops before it are dropped. | `trim_start_to` | Time must be later than the start and on the 20-minute grid. Works on any `--date`. |
 | `office-oee day end` | End the day now. | `end_now` | D-27. |
 | `office-oee day finish` | Finalise: uncategorised lost blocks default to System Down. | `finalise` | FR-027. |
 | `office-oee day show [--date]` | The full record: start, end, planned, downtime events, every block, metrics. | `DayRecord`, `blocks_until`, `day_result` | The past-day view as JSON. |

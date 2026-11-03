@@ -196,6 +196,17 @@ fn extend_and_end() {
 }
 
 #[test]
+fn trim_removes_blocks_before_a_time() {
+    let s = Sandbox::new("trim");
+    s.ok(&["day", "start", "--now", "01:00"]);
+    s.err(&["day", "trim", "--from", "01:00", "--now", "10:00"], 4, "not_later");
+    s.err(&["day", "trim", "--from", "09:10", "--now", "10:00"], 4, "off_grid");
+    s.err(&["day", "trim", "--from", "soon", "--now", "10:00"], 2, "bad_time");
+    let v = s.ok(&["day", "trim", "--from", "09:00", "--now", "10:00"]);
+    assert_eq!(v["result"]["start"], "09:00");
+}
+
+#[test]
 fn show_includes_every_block_and_the_record() {
     let s = Sandbox::new("show");
     s.ok(&["day", "start", "--now", "09:00"]);

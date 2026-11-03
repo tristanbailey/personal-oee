@@ -133,6 +133,17 @@ impl Tracker {
         }
     }
 
+    /// Remove the blocks before `new_start` (the day starts there instead). A
+    /// stop running across the cut now starts at it.
+    pub fn trim_start_to(&mut self, new_start: u32) -> Result<(), crate::TrimError> {
+        self.record.trim_start_to(new_start)?;
+        if let Mode::Downtime { since } = self.mode {
+            self.mode = Mode::Downtime { since: since.max(new_start) };
+        }
+        self.sync();
+        Ok(())
+    }
+
     /// FR-011: the shortcut. Work → Downtime, Downtime → Work.
     /// Ignored during Planned Downtime and after the day has ended.
     pub fn toggle_downtime(&mut self, now: u32) -> Mode {

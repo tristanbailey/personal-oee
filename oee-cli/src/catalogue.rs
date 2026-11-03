@@ -73,6 +73,12 @@ pub const COMMANDS: &[Command] = &[
         args: &[("--to <HH:MM>", "new finish time, later than the current one")],
     },
     Command {
+        name: "day trim",
+        summary: "Remove the blocks before a time; the day starts there instead",
+        writes: true,
+        args: &[("--from <HH:MM>", "new start, later than the current one, on the day's 20-minute blocks")],
+    },
+    Command {
         name: "day end",
         summary: "End the day now (lowers the target)",
         writes: true,
@@ -319,7 +325,7 @@ pub fn schema_for(name: &str) -> Option<Value> {
         ]),
         "schema" => json!({ "type": "object", "description": "A JSON Schema document" }),
         "day start" | "day status" | "day toggle" | "day downtime start" | "day downtime stop"
-        | "day extend" | "day end" | "day finish" | "day show" => day_state_schema(name),
+        | "day extend" | "day trim" | "day end" | "day finish" | "day show" => day_state_schema(name),
         "day list" => object(&[("days", array_of(object(&[
             ("date", string()),
             ("start", string()),

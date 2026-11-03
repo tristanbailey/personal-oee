@@ -110,6 +110,29 @@ impl fmt::Display for EditError {
 
 impl std::error::Error for EditError {}
 
+/// Why a day's start couldn't be moved later (see [`DayRecord::trim_start_to`]).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TrimError {
+    /// The new start must be later than the day's current start.
+    NotLater,
+    /// The new start must sit on the day's 20-minute grid.
+    OffGrid,
+    /// The day keeps at least one block, so the new start must be before the finish.
+    NoBlocksLeft,
+}
+
+impl fmt::Display for TrimError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(match self {
+            Self::NotLater => "the new start must be later than the day's start",
+            Self::OffGrid => "the new start must fall on the day's 20-minute blocks",
+            Self::NoBlocksLeft => "the new start must leave at least one block before the finish",
+        })
+    }
+}
+
+impl std::error::Error for TrimError {}
+
 /// Everything recorded for one working day.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DayRecord {
@@ -155,6 +178,32 @@ impl DayRecord {
         if end > start {
             self.downtime.push(DowntimeEvent { start, end });
         }
+    }
+
+    /// Remove every block before `new_start` by making the day start there.
+    /// Edits on those blocks go, stops are clipped to the new start, and planned
+    /// windows that ended before it are dropped. The day's target shrinks with it.
+    pub fn trim_start_to(&mut self, new_start: u32) -> Result<(), TrimError> {
+        if new_start <= self.start {
+            return Err(TrimError::NotLater);
+        }
+        if (new_start - self.start) % BLOCK_MINUTES != 0 {
+            return Err(TrimError::OffGrid);
+        }
+        if new_start >= self.end {
+            return Err(TrimError::NoBlocksLeft);
+        }
+        self.start = new_start;
+        self.edits.retain(|&s, _| s >= new_start);
+        self.downtime.retain(|d| d.end > new_start);
+        for d in &mut self.downtime {
+            d.start = d.start.max(new_start);
+        }
+        self.planned.retain(|w| w.end > new_start);
+        for w in &mut self.planned {
+            w.start = w.start.max(new_start);
+        }
+        Ok(())
     }
 
     /// Number of whole 20-minute slots in the day.

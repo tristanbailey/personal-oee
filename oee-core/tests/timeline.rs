@@ -714,3 +714,40 @@ fn resume_with_notices_reports_what_happened_while_away() {
         vec![Notice::PlannedStarted { kind: PlannedKind::Break, label: "Lunch".into() }]
     );
 }
+
+#[test]
+fn trimming_the_start_removes_the_earlier_blocks_and_their_data() {
+    let mut r = DayRecord::new(hm(1, 0), hm(17, 40), vec![lunch()]);
+    r.add_downtime(hm(8, 50), hm(9, 30));
+    r.set_note(hm(2, 0), Some("gone".into())).unwrap();
+    r.set_note(hm(10, 0), Some("kept".into())).unwrap();
+
+    r.trim_start_to(hm(9, 0)).unwrap();
+
+    assert_eq!(r.start, hm(9, 0));
+    assert_eq!(r.blocks().first().unwrap().start, hm(9, 0));
+    assert_eq!(r.slot_count(), 26);
+    // The stop that began at 08:50 is clipped to the new start.
+    assert_eq!(r.downtime, vec![DowntimeEvent { start: hm(9, 0), end: hm(9, 30) }]);
+    let notes: Vec<_> = r.blocks().iter().filter_map(|b| b.note.clone()).collect();
+    assert_eq!(notes, vec!["kept".to_string()]);
+}
+
+#[test]
+fn trimming_refuses_a_bad_start() {
+    let mut r = DayRecord::new(hm(1, 0), hm(17, 40), vec![]);
+    assert_eq!(r.trim_start_to(hm(1, 0)), Err(TrimError::NotLater));
+    assert_eq!(r.trim_start_to(hm(0, 40)), Err(TrimError::NotLater));
+    assert_eq!(r.trim_start_to(hm(9, 10)), Err(TrimError::OffGrid));
+    assert_eq!(r.trim_start_to(hm(17, 40)), Err(TrimError::NoBlocksLeft));
+    assert_eq!(r.start, hm(1, 0));
+}
+
+#[test]
+fn a_running_stop_across_the_trim_starts_at_the_new_start() {
+    let mut t = Tracker::start_day(hm(1, 0), vec![], Settings::default());
+    t.toggle_downtime(hm(2, 0));
+    t.trim_start_to(hm(9, 0)).unwrap();
+    assert_eq!(t.mode(), Mode::Downtime { since: hm(9, 0) });
+    assert_eq!(t.record.down_since, Some(hm(9, 0)));
+}

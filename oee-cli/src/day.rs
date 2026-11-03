@@ -36,6 +36,11 @@ pub enum DayCommand {
         #[arg(long, value_name = "HH:MM")]
         to: String,
     },
+    /// Remove the blocks before a time: the day starts there instead.
+    Trim {
+        #[arg(long, value_name = "HH:MM")]
+        from: String,
+    },
     /// End the day now.
     End,
     /// Finalise: uncategorised lost blocks become System Down.
@@ -68,6 +73,7 @@ impl DayCommand {
             DayCommand::Downtime(DowntimeCommand::Start) => "day downtime start",
             DayCommand::Downtime(DowntimeCommand::Stop) => "day downtime stop",
             DayCommand::Extend { .. } => "day extend",
+            DayCommand::Trim { .. } => "day trim",
             DayCommand::End => "day end",
             DayCommand::Finish => "day finish",
             DayCommand::Show => "day show",
@@ -85,6 +91,7 @@ pub fn run(ctx: &Context, cmd: &DayCommand) -> Result<Reply, CliError> {
         DayCommand::Downtime(DowntimeCommand::Start) => toggle(ctx, Want::Start),
         DayCommand::Downtime(DowntimeCommand::Stop) => toggle(ctx, Want::Stop),
         DayCommand::Extend { to } => extend(ctx, to),
+        DayCommand::Trim { from } => trim(ctx, from),
         DayCommand::End => end(ctx),
         DayCommand::Finish => finish(ctx),
         DayCommand::Show => show(ctx),
@@ -312,6 +319,22 @@ fn extend(ctx: &Context, to: &str) -> Result<Reply, CliError> {
         ));
     }
     t.extend_to(end, ctx.now.minutes);
+    let saved = save(ctx, &o, &t)?;
+    Ok(Reply { result: with_saved(state_json(ctx, &t), saved), notices: notices_json(&notices) })
+}
+
+fn trim(ctx: &Context, from: &str) -> Result<Reply, CliError> {
+    let new_start = parse_time(from, "--from")?;
+    let o = open(ctx, true)?;
+    let (mut t, notices) = load_tracker(ctx, &o)?;
+    if let Err(e) = t.trim_start_to(new_start) {
+        let code = match e {
+            oee_core::TrimError::NotLater => "not_later",
+            oee_core::TrimError::OffGrid => "off_grid",
+            oee_core::TrimError::NoBlocksLeft => "no_blocks_left",
+        };
+        return Err(CliError::new(Exit::Rule, code, format!("{e}.")));
+    }
     let saved = save(ctx, &o, &t)?;
     Ok(Reply { result: with_saved(state_json(ctx, &t), saved), notices: notices_json(&notices) })
 }
