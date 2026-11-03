@@ -389,6 +389,7 @@ impl App {
         }
         self.save_if_changed();
         self.today = date;
+        self.start_input = None;
         self.load_day(now);
     }
 
@@ -798,11 +799,15 @@ impl eframe::App for App {
                 // D-19: the Not started screen. D-04: today's planned windows come
                 // from the weekly calendar.
                 let planned = start::planned_for(&self.calendar, self.today);
-                let input = self.start_input.get_or_insert_with(|| hhmm(now));
+                // Follow the clock until the user types; never cache "now".
+                let mut input = self.start_input.clone().unwrap_or_else(|| hhmm(now));
                 ui.heading("Start your day");
                 ui.horizontal(|ui| {
                     ui.label("Start time");
-                    ui.add(egui::TextEdit::singleline(input).desired_width(60.0));
+                    let edit = ui.add(egui::TextEdit::singleline(&mut input).desired_width(60.0));
+                    if edit.changed() {
+                        self.start_input = Some(input.clone());
+                    }
                     ui.label(format!("(now {})", hhmm(now)));
                 });
                 for line in start::planned_lines(&planned) {
@@ -812,7 +817,7 @@ impl eframe::App for App {
                     theme::error(ui, e);
                 }
                 if ui.button("Start day").clicked() {
-                    match start::validate_start(input, now) {
+                    match start::validate_start(&input, now) {
                         Ok(at) => {
                             self.tracker =
                                 Some(Tracker::start_day(at, planned, core));
@@ -957,6 +962,24 @@ mod tests {
         // Coming back to the old date's file later reopens it.
         app.roll_over_if_new_day(date(29), hm(10, 0));
         assert!(app.tracker.is_some());
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn a_new_day_does_not_keep_a_start_time_typed_or_defaulted_earlier() {
+        // Bug: the Not started screen fills its Start time box with "now" once
+        // (`start_input.get_or_insert_with`) and never refreshes it. If the app
+        // renders that screen at 01:00 (a dark wake, or a rollover while the
+        // window is open), the box keeps "01:00" until the morning, and Start
+        // day then begins the day at 01:00 instead of the real time.
+        let dir = temp_dir("stale-start");
+        let mut app = App::open(Some(store::Store::new(&dir)), date(29), hm(9, 0));
+        app.tracker = Some(Tracker::start_day(hm(9, 0), vec![], Settings::default()));
+        app.start_input = Some("01:00".into());
+
+        app.roll_over_if_new_day(date(30), hm(1, 0));
+
+        assert!(app.start_input.is_none(), "stale start time survived the new day");
         let _ = std::fs::remove_dir_all(dir);
     }
 
