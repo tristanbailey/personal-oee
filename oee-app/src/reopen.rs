@@ -71,7 +71,7 @@ pub fn install(ctx: egui::Context) -> Result<(), String> {
             types.as_ptr(),
         )
     };
-    if added != 0 {
+    if Bool::from_raw(added).as_bool() {
         Ok(())
     } else {
         Err("the app delegate already handles reopen".into())
