@@ -12,10 +12,10 @@ env:
 jobs:
   build:
 
-    runs-on: macos-latest
+    runs-on: macos-14-intel
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v6
     - name: Build
       run: cargo build --verbose
     - name: Run tests
