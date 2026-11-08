@@ -414,8 +414,8 @@ impl App {
     }
 
     /// D-52: write the days and blocks CSV for the chosen range into a folder
-    /// the user picks.
-    fn export_csv(&mut self, now: u32) {
+    /// the user picks. D-60: or the spreadsheet totals file.
+    fn export_csv(&mut self, kind: export_screen::ExportKind, now: u32) {
         self.export_form.error = None;
         let saved = self.store.as_ref().map(|s| s.load_all()).unwrap_or_default();
         let dates: Vec<NaiveDate> = saved.iter().map(|(d, _)| *d).collect();
@@ -434,13 +434,21 @@ impl App {
         else {
             return; // cancelled
         };
+        let name = |p: &std::path::Path| {
+            p.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default()
+        };
+        if kind == export_screen::ExportKind::Totals {
+            let csv = oee_core::export::totals_csv(&days, &core);
+            match export_screen::write_totals(&dir, from, to, &csv) {
+                Ok(p) => self.push_message(format!("Saved {} to {}.", name(&p), dir.display())),
+                Err(e) => self.export_form.error = Some(format!("Couldn't save the file: {e}")),
+            }
+            return;
+        }
         let days_csv = oee_core::export::days_csv(&days, &core);
         let blocks_csv = oee_core::export::blocks_csv(&days, &core);
         match export_screen::write_files(&dir, from, to, &days_csv, &blocks_csv) {
             Ok((d, b)) => {
-                let name = |p: &std::path::Path| {
-                    p.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default()
-                };
                 self.push_message(format!(
                     "Saved {} and {} to {}.",
                     name(&d),
@@ -672,7 +680,7 @@ impl eframe::App for App {
             let mut go_to = None;
             let mut open_date = None;
             let mut save_settings = false;
-            let mut export_now = false;
+            let mut export_now = None;
             egui::CentralPanel::default().show(ctx, |ui| match self.tab {
                 tabs::Tab::Week => {
                     let working = week_view.as_ref().map_or(0, |v| v.working_days);
@@ -711,8 +719,8 @@ impl eframe::App for App {
             if save_settings {
                 self.apply_settings();
             }
-            if export_now {
-                self.export_csv(now);
+            if let Some(kind) = export_now {
+                self.export_csv(kind, now);
             }
             if let Some(m) = go_to {
                 self.week_monday = m;

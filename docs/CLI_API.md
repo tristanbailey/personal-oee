@@ -170,7 +170,7 @@ Category and type names are the kebab-case form of the PRD labels. `office-oee c
 | `office-oee report trends [--weeks 4\|12\|26]` | One pooled point per working week. | `weekly_series` (D-55) |
 | `office-oee report goal [--week-of D]` | Status (on track / behind / met / not met) and streak. | `goal_status`, `goal_streak` (D-56) |
 | `office-oee report losses [--from --to]` | Minutes and blocks lost per category. | `LossMinutes` |
-| `office-oee export csv --from D --to D --out <dir>` | Writes the days and blocks CSVs exactly as the Export panel does; `--stdout days\|blocks` prints one instead. | `days_csv`, `blocks_csv`, `build_days` (D-51, D-52) |
+| `office-oee export csv --from D --to D --out <dir>` | Writes the days and blocks CSVs exactly as the Export panel does, plus the spreadsheet totals CSV (`oee-totals-<from>-<to>.csv`); `--stdout days\|blocks\|totals` prints one instead. | `days_csv`, `blocks_csv`, `totals_csv`, `build_days` (D-51, D-52, D-60) |
 
 ### 5.5 Testing and seeding (the part built for agents)
 

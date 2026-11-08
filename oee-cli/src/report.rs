@@ -8,7 +8,7 @@ use clap::{Subcommand, ValueEnum};
 use oee_core::{
     day_result, goal_status, goal_streak, DayInputs, DayStatus, GoalStatus, LostCategory,
 };
-use oee_store::export_range::{build_days, write_files};
+use oee_store::export_range::{build_days, write_files, write_totals};
 use oee_store::weekly::{self, day_inputs, over_capacity, report as pooled, series_from, week_start};
 use serde_json::{json, Value};
 
@@ -60,7 +60,7 @@ pub enum ExportCommand {
         /// Every saved day.
         #[arg(long, conflicts_with_all = ["from", "to"])]
         all: bool,
-        /// Write both files into this folder (never overwrites an earlier export).
+        /// Write the days, blocks and totals files into this folder (never overwrites an earlier export).
         #[arg(long, value_name = "DIR", conflicts_with = "stdout")]
         out: Option<PathBuf>,
         /// Return one file's text in the result instead of writing files.
@@ -73,6 +73,8 @@ pub enum ExportCommand {
 pub enum Which {
     Days,
     Blocks,
+    /// D-60: the spreadsheet totals file.
+    Totals,
 }
 
 impl ReportCommand {
@@ -310,6 +312,7 @@ pub fn export(ctx: &Context, cmd: &ExportCommand) -> Result<Reply, CliError> {
     let rows = build_days(first, last, &saved, ctx.now.date, ctx.now.minutes);
     let days_csv = oee_core::export::days_csv(&rows, &o.settings.core);
     let blocks_csv = oee_core::export::blocks_csv(&rows, &o.settings.core);
+    let totals_csv = oee_core::export::totals_csv(&rows, &o.settings.core);
     let mut result = json!({
         "from": first.to_string(),
         "to": last.to_string(),
@@ -322,6 +325,7 @@ pub fn export(ctx: &Context, cmd: &ExportCommand) -> Result<Reply, CliError> {
         result["csv"] = json!(match which {
             Which::Days => &days_csv,
             Which::Blocks => &blocks_csv,
+            Which::Totals => &totals_csv,
         });
     } else if let Some(dir) = out {
         if ctx.dry_run {
@@ -330,11 +334,18 @@ pub fn export(ctx: &Context, cmd: &ExportCommand) -> Result<Reply, CliError> {
             std::fs::create_dir_all(dir).map_err(|e| data_err("Couldn't create the output folder", e))?;
             let (d, b) = write_files(dir, first, last, &days_csv, &blocks_csv)
                 .map_err(|e| data_err("Couldn't write the CSV files", e))?;
-            result["files"] = json!({ "written": true, "days": d.display().to_string(), "blocks": b.display().to_string() });
+            let t = write_totals(dir, first, last, &totals_csv)
+                .map_err(|e| data_err("Couldn't write the CSV files", e))?;
+            result["files"] = json!({
+                "written": true,
+                "days": d.display().to_string(),
+                "blocks": b.display().to_string(),
+                "totals": t.display().to_string(),
+            });
         }
     } else {
         return Err(CliError::usage("output_required", "Say where the CSV goes.")
-            .hint("Use --out <folder> to write both files, or --stdout days|blocks to get one in the result."));
+            .hint("Use --out <folder> to write the files, or --stdout days|blocks|totals to get one in the result."));
     }
     Ok(result.into())
 }

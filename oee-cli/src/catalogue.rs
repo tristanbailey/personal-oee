@@ -261,13 +261,13 @@ pub const COMMANDS: &[Command] = &[
     },
     Command {
         name: "export csv",
-        summary: "The days and blocks CSV files (reads data; writes only to --out)",
+        summary: "The days, blocks and spreadsheet totals CSV files (reads data; writes only to --out)",
         writes: false,
         args: &[
             ("--from <DATE> --to <DATE>", "range (default: the week of --date)"),
             ("--all", "every saved day"),
-            ("--out <DIR>", "write both files here, never overwriting"),
-            ("--stdout days|blocks", "return one file's text in the result"),
+            ("--out <DIR>", "write the days, blocks and totals files here, never overwriting"),
+            ("--stdout days|blocks|totals", "return one file's text in the result"),
         ],
     },
 ];
@@ -420,7 +420,7 @@ pub fn schema_for(name: &str) -> Option<Value> {
             ("to", string()),
             ("days", json!({ "type": "integer" })),
             ("weekdays_note", string()),
-            ("files", json!({ "type": ["object", "null"], "description": "written, days, blocks (paths)" })),
+            ("files", json!({ "type": ["object", "null"], "description": "written, days, blocks, totals (paths)" })),
             ("csv", json!({ "type": ["string", "null"], "description": "the file's text with --stdout" })),
         ]),
         "day delete" => object(&[
