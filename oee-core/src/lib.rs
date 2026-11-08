@@ -33,7 +33,7 @@ pub use calendar::{CalendarEntry, EntryId, PlannedWindow, Weekday, WeeklyCalenda
 pub use category::{LossMinutes, LostCategory, PlannedKind};
 pub use goal::{goal_met, goal_status, goal_streak, GoalStatus};
 pub use metrics::{day_result, DayInputs, DayResult, DayStatus, Metrics};
-pub use rules::{hm, lost_blocks, Settings, BLOCK_MINUTES};
+pub use rules::{hm, lost_blocks, lost_blocks_in, clamp_cycle, Settings, BLOCK_MINUTES, MAX_CYCLE_MINUTES, MIN_CYCLE_MINUTES};
 pub use timeline::{Block, BlockKind, BlockType, BulkChange, BulkOutcome, DayRecord, DowntimeEvent, EditError, TrimError};
 pub use tracker::{Mode, Notice, StopSummary, Toggled, Tracker};
 pub use trends::{weekly_series, WeekPoint};

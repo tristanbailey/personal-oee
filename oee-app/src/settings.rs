@@ -57,6 +57,12 @@ pub fn show(ui: &mut egui::Ui, form: &mut SettingsForm) -> bool {
             ui.label("Base target (Work points)");
             ui.add(egui::TextEdit::singleline(&mut form.target).desired_width(60.0));
             ui.end_row();
+            ui.label("Cycle time (minutes)");
+            ui.horizontal(|ui| {
+                ui.add(egui::TextEdit::singleline(&mut form.cycle).desired_width(60.0));
+                ui.weak("Applies from the next day you start");
+            });
+            ui.end_row();
             ui.label("Weekly OEE goal");
             ui.horizontal(|ui| {
                 ui.checkbox(&mut form.goal_on, "On");

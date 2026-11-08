@@ -220,7 +220,7 @@ pub fn header(record: &DayRecord) -> String {
         hhmm(record.end),
         if n == 1 { "" } else { "s" }
     );
-    let extra = (record.end - record.start) % oee_core::BLOCK_MINUTES;
+    let extra = (record.end - record.start) % record.cycle_minutes;
     if extra > 0 {
         text.push_str(&format!(" + {extra} min"));
     }

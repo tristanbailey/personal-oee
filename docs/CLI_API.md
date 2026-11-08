@@ -158,8 +158,8 @@ Category and type names are the kebab-case form of the PRD labels. `office-oee c
 | `office-oee calendar list` | Entries per weekday, with ids. | `WeeklyCalendar::entries_for` |
 | `office-oee calendar add --day mon --from HH:MM --to HH:MM --kind break\|meeting --label "Lunch"` | Add a window; snapped to the grid like the UI. | `add`, `timeline::snap` (D-32) |
 | `office-oee calendar remove --id N` | Remove by id. | `remove` (D-30) |
-| `office-oee settings get` | Day start, end, target, shortcut, weekly goal. | `AppSettings` |
-| `office-oee settings set [--start --end --target --goal N --goal off]` | Same validation as the Settings tab. | `SettingsForm::parse` logic, moved to `oee-store` (G5) |
+| `office-oee settings get` | Day start, end, target, cycle time, shortcut, weekly goal. | `AppSettings` |
+| `office-oee settings set [--start --end --target --cycle N --goal N --goal off]` | Same validation as the Settings tab. | `SettingsForm::parse` logic, moved to `oee-store` (G5) |
 
 ### 5.4 Reports (read-only)
 
@@ -193,7 +193,7 @@ The main reason for the CLI: let an agent replay a day deterministically, then a
 ```json
 {
   "date": "2026-11-02",
-  "settings": { "start": "09:00", "end": "17:40", "target": 20 },
+  "settings": { "start": "09:00", "end": "17:40", "target": 20, "cycle": 20 },
   "calendar": [ { "day": "mon", "from": "12:00", "to": "13:00", "kind": "break", "label": "Lunch" } ],
   "steps": [
     { "at": "09:00", "do": "day.start" },

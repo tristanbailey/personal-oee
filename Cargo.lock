@@ -2842,7 +2842,7 @@ dependencies = [
 
 [[package]]
 name = "oee-app"
-version = "1.0.6"
+version = "1.0.7"
 dependencies = [
  "chrono",
  "eframe",
@@ -2861,7 +2861,7 @@ dependencies = [
 
 [[package]]
 name = "oee-cli"
-version = "1.0.6"
+version = "1.0.7"
 dependencies = [
  "chrono",
  "clap",
@@ -2873,7 +2873,7 @@ dependencies = [
 
 [[package]]
 name = "oee-core"
-version = "1.0.6"
+version = "1.0.7"
 dependencies = [
  "serde",
  "serde_json",
@@ -2881,7 +2881,7 @@ dependencies = [
 
 [[package]]
 name = "oee-store"
-version = "1.0.6"
+version = "1.0.7"
 dependencies = [
  "chrono",
  "oee-core",

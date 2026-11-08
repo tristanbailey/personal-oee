@@ -1,7 +1,7 @@
 //! User settings (D-44): the day's defaults and the downtime shortcut, saved to
 //! `settings.json`.
 
-use oee_core::{Settings, BLOCK_MINUTES};
+use oee_core::{Settings, MAX_CYCLE_MINUTES, MIN_CYCLE_MINUTES};
 use serde::{Deserialize, Serialize};
 
 use crate::start::{hhmm, parse_hhmm};
@@ -107,6 +107,8 @@ pub struct SettingsForm {
     pub start: String,
     pub end: String,
     pub target: String,
+    /// D-61: cycle time in minutes.
+    pub cycle: String,
     pub key: String,
     pub goal_on: bool,
     pub goal: String,
@@ -124,6 +126,7 @@ impl SettingsForm {
             start: hhmm(s.core.default_start),
             end: hhmm(s.core.default_end),
             target: s.core.base_target.to_string(),
+            cycle: s.core.cycle_minutes.to_string(),
             key: s.shortcut.key.to_string(),
             goal_on: s.goal.enabled,
             goal: s.goal.percent.to_string(),
@@ -141,9 +144,24 @@ impl SettingsForm {
         let time = "Enter times as HH:MM, for example 09:00.";
         let default_start = parse_hhmm(&self.start).ok_or(time)?;
         let default_end = parse_hhmm(&self.end).ok_or(time)?;
-        if default_end < default_start + BLOCK_MINUTES {
+        let cycle_minutes: u32 = self
+            .cycle
+            .trim()
+            .parse()
+            .ok()
+            .filter(|c| (MIN_CYCLE_MINUTES..=MAX_CYCLE_MINUTES).contains(c))
+            .ok_or_else(|| {
+                format!("The cycle time must be a whole number of minutes from {MIN_CYCLE_MINUTES} to {MAX_CYCLE_MINUTES}.")
+            })?;
+        if default_end < default_start + cycle_minutes {
             return Err(format!(
-                "The finish time must be at least {BLOCK_MINUTES} minutes after the start time."
+                "The finish time must be at least {cycle_minutes} minutes after the start time."
+            ));
+        }
+        if (default_end - default_start) % cycle_minutes != 0 {
+            return Err(format!(
+                "The cycle time must divide the working day evenly: {} minutes is not a whole number of {cycle_minutes}-minute blocks.",
+                default_end - default_start
             ));
         }
         let base_target: u32 = self
@@ -182,6 +200,7 @@ impl SettingsForm {
                 default_start,
                 default_end,
                 base_target,
+                cycle_minutes,
             },
             shortcut,
             goal,
@@ -210,16 +229,30 @@ mod tests {
     }
 
     #[test]
+    fn the_cycle_time_must_be_a_sensible_whole_number_that_fits_the_day() {
+        let mut f = form();
+        f.cycle = "30".into();
+        // 09:00–17:40 is 520 minutes, which 30 does not divide.
+        assert!(f.parse().unwrap_err().contains("divide the working day evenly"));
+        f.end = "18:00".into();
+        assert_eq!(f.parse().unwrap().core.cycle_minutes, 30);
+        for bad in ["", "abc", "4", "0", "101", "-5", "12.5"] {
+            f.cycle = bad.into();
+            assert!(f.parse().unwrap_err().starts_with("The cycle time must be"), "{bad}");
+        }
+    }
+
+    #[test]
     fn valid_edits_are_applied() {
         let mut f = form();
         f.start = "08:30".into();
-        f.end = "17:00".into();
+        f.end = "17:10".into();
         f.target = "22".into();
         f.key = "j".into();
         f.shift = true;
         let s = f.parse().unwrap();
         assert_eq!(s.core.default_start, hm(8, 30));
-        assert_eq!(s.core.default_end, hm(17, 0));
+        assert_eq!(s.core.default_end, hm(17, 10));
         assert_eq!(s.core.base_target, 22);
         assert_eq!(s.shortcut.label(), "Ctrl+Option+Shift+J");
     }

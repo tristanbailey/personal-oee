@@ -1,4 +1,4 @@
-//! A day's 20-minute blocks.
+//! A day's blocks (20 minutes by default, set per day by its cycle time).
 //!
 //! A [`DayRecord`] stores only the facts: the day window, the planned windows,
 //! the downtime stops, and the user's edits (categories, rework, notes). The
@@ -13,7 +13,7 @@ use std::fmt;
 use crate::calendar::PlannedWindow;
 use crate::category::{LossMinutes, LostCategory, PlannedKind};
 use crate::metrics::DayInputs;
-use crate::rules::{lost_blocks, Settings, BLOCK_MINUTES};
+use crate::rules::{default_cycle, deserialize_cycle, lost_blocks_in, Settings, BLOCK_MINUTES};
 
 /// A downtime stop, from shortcut-on to shortcut-off (FR-011).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -147,6 +147,10 @@ pub struct DayRecord {
     /// Kept in step with the mode by the tracker.
     #[serde(default)]
     pub down_since: Option<u32>,
+    /// D-61: minutes in one block, copied from the settings when the day was
+    /// started. Days saved before it existed are 20.
+    #[serde(default = "default_cycle", deserialize_with = "deserialize_cycle")]
+    pub cycle_minutes: u32,
     /// The settings this day was started with. Its target is scored against
     /// these, so changing the settings later doesn't rewrite past days. Days
     /// saved without it use whatever settings are passed in.
@@ -159,8 +163,14 @@ impl DayRecord {
     /// Planned windows are snapped outwards to the day's 20-minute grid, so a
     /// 09:30–10:00 meeting on a 09:00 start becomes 09:20–10:00 (40 min).
     pub fn new(start: u32, end: u32, planned: Vec<PlannedWindow>) -> Self {
+        Self::with_cycle(start, end, planned, BLOCK_MINUTES)
+    }
+
+    /// Like [`DayRecord::new`], with the day's own cycle time (D-61).
+    pub fn with_cycle(start: u32, end: u32, planned: Vec<PlannedWindow>, cycle: u32) -> Self {
         assert!(end > start, "day must end after it starts");
-        let mut planned: Vec<_> = planned.into_iter().map(|w| snap(w, start)).collect();
+        assert!(cycle > 0, "cycle time must be positive");
+        let mut planned: Vec<_> = planned.into_iter().map(|w| snap(w, start, cycle)).collect();
         planned.sort_by_key(|w| w.start);
         Self {
             start,
@@ -169,6 +179,7 @@ impl DayRecord {
             downtime: Vec::new(),
             finalised: false,
             down_since: None,
+            cycle_minutes: cycle,
             scored_with: None,
             edits: BTreeMap::new(),
         }
@@ -187,7 +198,7 @@ impl DayRecord {
         if new_start <= self.start {
             return Err(TrimError::NotLater);
         }
-        if (new_start - self.start) % BLOCK_MINUTES != 0 {
+        if (new_start - self.start) % self.cycle_minutes != 0 {
             return Err(TrimError::OffGrid);
         }
         if new_start >= self.end {
@@ -208,7 +219,7 @@ impl DayRecord {
 
     /// Number of whole 20-minute slots in the day.
     pub fn slot_count(&self) -> u32 {
-        (self.end - self.start) / BLOCK_MINUTES
+        (self.end - self.start) / self.cycle_minutes
     }
 
     /// FR-032: planned minutes inside the day, overlaps merged.
@@ -224,7 +235,7 @@ impl DayRecord {
         let mut total = self.planned_in(self.start, end);
         for (&s, edit) in &self.edits {
             let Some(force) = edit.force else { continue };
-            let e = (s + BLOCK_MINUTES).min(end);
+            let e = (s + self.cycle_minutes).min(end);
             total -= self.planned_in(s, e);
             if matches!(force, BlockType::Planned(_)) && s >= self.start && e > s {
                 total += e - s;
@@ -273,8 +284,8 @@ impl DayRecord {
     pub fn blocks_until(&self, until: u32) -> Vec<Block> {
         let n = self.slot_count() as usize;
         let slot = |i: usize| {
-            let s = self.start + i as u32 * BLOCK_MINUTES;
-            (s, s + BLOCK_MINUTES)
+            let s = self.start + i as u32 * self.cycle_minutes;
+            (s, s + self.cycle_minutes)
         };
 
         // 1. Planned Downtime. Windows are already on the grid (see `new`), so a
@@ -302,7 +313,7 @@ impl DayRecord {
             let Some((s, e)) = self.effective(*ev) else {
                 continue;
             };
-            let needed = lost_blocks(e - s) as usize;
+            let needed = lost_blocks_in(e - s, self.cycle_minutes) as usize;
             if needed == 0 {
                 continue;
             }
@@ -461,7 +472,9 @@ impl DayRecord {
     /// minutes and blocks are clipped to `until`. The target stays the full
     /// day's target, so Efficiency reads as progress towards it.
     pub fn inputs_until(&self, settings: &Settings, until: u32) -> DayInputs {
-        let settings = self.scored_with.as_ref().unwrap_or(settings);
+        let mut settings = *self.scored_with.as_ref().unwrap_or(settings);
+        // The day's own cycle time decides its target, whatever the setting is now.
+        settings.cycle_minutes = self.cycle_minutes;
         let mut losses = LossMinutes::default();
         let mut work_points = 0;
         let mut rework_points = 0;
@@ -473,7 +486,7 @@ impl DayRecord {
                 }
                 BlockKind::Lost { .. } => {
                     let c = b.effective_category().expect("lost block");
-                    losses.add(c, c.downtime_minutes());
+                    losses.add(c, c.downtime_minutes(self.cycle_minutes));
                 }
                 BlockKind::Planned(_) => {}
             }
@@ -491,19 +504,19 @@ impl DayRecord {
 
 /// Snap a planned window outwards to whole 20-minute blocks from `day_start`
 /// (FR-038), the way a day counts it.
-pub fn snap(mut w: PlannedWindow, day_start: u32) -> PlannedWindow {
+pub fn snap(mut w: PlannedWindow, day_start: u32, cycle: u32) -> PlannedWindow {
     let down = |t: u32| {
         if t <= day_start {
             t
         } else {
-            day_start + (t - day_start) / BLOCK_MINUTES * BLOCK_MINUTES
+            day_start + (t - day_start) / cycle * cycle
         }
     };
     let up = |t: u32| {
         if t <= day_start {
             t
         } else {
-            day_start + (t - day_start).div_ceil(BLOCK_MINUTES) * BLOCK_MINUTES
+            day_start + (t - day_start).div_ceil(cycle) * cycle
         }
     };
     w.start = down(w.start);

@@ -189,7 +189,7 @@ pub const COMMANDS: &[Command] = &[
     },
     Command {
         name: "settings get",
-        summary: "Day start, finish, daily target, shortcut and weekly goal",
+        summary: "Day start, finish, daily target, cycle time, shortcut and weekly goal",
         writes: false,
         args: &[],
     },
@@ -200,6 +200,7 @@ pub const COMMANDS: &[Command] = &[
         args: &[
             ("--start <HH:MM> --end <HH:MM>", "default day hours"),
             ("--target <N>", "daily target, 1 to 100"),
+            ("--cycle <MINUTES>", "block length, 5 to 100, dividing the day evenly; applies from the next day started"),
             ("--goal <N|off>", "weekly OEE goal percent, or off"),
             ("--shortcut <KEYS>", "for example ctrl+alt+D"),
         ],
@@ -358,6 +359,7 @@ pub fn schema_for(name: &str) -> Option<Value> {
             ("start", string()),
             ("end", string()),
             ("target", json!({ "type": "integer" })),
+            ("cycle_minutes", json!({ "type": "integer", "description": "block length in minutes (default 20)" })),
             ("shortcut", json!({ "type": "object", "description": "label, ctrl, alt, shift, cmd, key" })),
             ("goal", json!({ "type": "object", "description": "enabled, percent" })),
         ]),

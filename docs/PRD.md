@@ -10,7 +10,7 @@
 _What the system is and the problem it solves._
 
 - A Pomodoro-style work tracker that measures personal output in OEE terms.
-- Work runs in fixed **20-minute blocks**, back to back, across the whole working day.
+- Work runs in fixed **20-minute blocks** (the default; the cycle time is a setting, D-61), back to back, across the whole working day.
 - Every block is either **Work**, **Lost time** (one of five categories), or **Planned Downtime** (breaks and meetings).
 - Work blocks earn **points**. Rework is tracked separately as a Quality loss.
 
@@ -41,7 +41,7 @@ _Who uses it, when, on what device._
 _Grouped by area. IDs stay stable so they can map to app features later._
 
 ### 5.1 Timer & Day
-- **FR-001** — Timer runs in 20-minute work blocks.
+- **FR-001** — Timer runs in work blocks of one cycle time: 20 minutes by default, changeable in Settings. A change applies from the next day started, and each day keeps the cycle time it started with (D-61). The other rules below say 20 minutes for the default; with a different cycle time they scale (Change Over counts as half a block, and the part-block leeway is a quarter of a block).
 - **FR-002** — All blocks are a fixed **20 minutes**.
 - **FR-003** — Once the day starts, the timer runs continuously. Each 20-minute cycle rolls straight into the next until the day ends.
 - **FR-003a** — There are **no breaks between cycles**.

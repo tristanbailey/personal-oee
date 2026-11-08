@@ -5,7 +5,7 @@ use std::sync::atomic::{AtomicBool, AtomicU8, Ordering};
 use std::sync::Arc;
 
 use eframe::egui;
-use oee_core::{Mode, Tracker, BLOCK_MINUTES};
+use oee_core::{Mode, Tracker};
 use oee_store::tabs::Tab;
 use tray_icon::menu::accelerator::{Accelerator, Code, Modifiers};
 use tray_icon::menu::{CheckMenuItem, Menu, MenuEvent, MenuId, MenuItem, PredefinedMenuItem, Submenu};
@@ -58,7 +58,7 @@ pub fn tray_state(tracker: Option<&Tracker>, now: u32) -> TrayState {
             let into = now.saturating_sub(t.record.start);
             TrayState {
                 lamp: Lamp::Green,
-                title: format!("{}m", BLOCK_MINUTES - into % BLOCK_MINUTES),
+                title: format!("{}m", t.record.cycle_minutes - into % t.record.cycle_minutes),
                 toggle_label: "Start downtime",
                 toggle_enabled: true,
             }

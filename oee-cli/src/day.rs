@@ -6,7 +6,7 @@
 
 use chrono::NaiveDate;
 use clap::Subcommand;
-use oee_core::{day_result, Mode, Notice, Tracker, BLOCK_MINUTES};
+use oee_core::{day_result, Mode, Notice, Tracker};
 use oee_store::settings::AppSettings;
 use oee_store::start::{parse_hhmm, planned_for, validate_start};
 use oee_store::store::Store;
@@ -185,14 +185,15 @@ pub(crate) fn state_json(ctx: &Context, t: &Tracker) -> Value {
         Mode::Ended => Value::Null,
         _ if now < live.start || now >= live.end => Value::Null,
         _ => {
+            let cycle = live.cycle_minutes;
             let into = now - live.start;
-            let start = live.start + into / BLOCK_MINUTES * BLOCK_MINUTES;
+            let start = live.start + into / cycle * cycle;
             json!({
-                "number": into / BLOCK_MINUTES + 1,
+                "number": into / cycle + 1,
                 "of": live.slot_count(),
                 "start": hhmm(start),
-                "end": hhmm(start + BLOCK_MINUTES),
-                "minutes_left": start + BLOCK_MINUTES - now,
+                "end": hhmm(start + cycle),
+                "minutes_left": start + cycle - now,
             })
         }
     };

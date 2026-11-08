@@ -120,9 +120,9 @@ fn hhmm(m: u32) -> String {
 }
 
 /// "Counts as 09:20–10:00 (40 min) on a 09:00 start", or `None` if the window
-/// is already on the 20-minute grid.
-pub fn counts_as(window: &PlannedWindow, day_start: u32) -> Option<String> {
-    let snapped = snap(window.clone(), day_start);
+/// is already on the day's block grid.
+pub fn counts_as(window: &PlannedWindow, day_start: u32, cycle: u32) -> Option<String> {
+    let snapped = snap(window.clone(), day_start, cycle);
     (snapped.start != window.start || snapped.end != window.end).then(|| {
         format!(
             "Counts as {}–{} ({} min) on a {} start",
@@ -135,20 +135,20 @@ pub fn counts_as(window: &PlannedWindow, day_start: u32) -> Option<String> {
 }
 
 /// The entries on `day`, in time order.
-pub fn day_lines(calendar: &WeeklyCalendar, day: Weekday, day_start: u32) -> Vec<DayLine> {
+pub fn day_lines(calendar: &WeeklyCalendar, day: Weekday, day_start: u32, cycle: u32) -> Vec<DayLine> {
     calendar
         .entries_for(day)
         .into_iter()
         .map(|e| DayLine {
             id: e.id,
             text: window_line(&e.window),
-            counts_as: counts_as(&e.window, day_start),
+            counts_as: counts_as(&e.window, day_start, cycle),
         })
         .collect()
 }
 
 /// Draw the screen. Add and Remove change `calendar` directly.
-pub fn show(ui: &mut egui::Ui, calendar: &mut WeeklyCalendar, form: &mut AddForm, day_start: u32) {
+pub fn show(ui: &mut egui::Ui, calendar: &mut WeeklyCalendar, form: &mut AddForm, day_start: u32, cycle: u32) {
     let mut remove = None;
     ui.heading("Calendar");
     ui.label(NOTE);
@@ -164,7 +164,7 @@ pub fn show(ui: &mut egui::Ui, calendar: &mut WeeklyCalendar, form: &mut AddForm
                 .show(ui, |ui| {
                     ui.set_width(ui.available_width());
                     ui.label(RichText::new(name).strong());
-                    let lines = day_lines(&*calendar, day, day_start);
+                    let lines = day_lines(&*calendar, day, day_start, cycle);
                     if lines.is_empty() {
                         ui.label(RichText::new(EMPTY_DAY).weak());
                     }
@@ -222,7 +222,7 @@ mod tests {
             Weekday::Mon,
             PlannedWindow::new(hm(9, 40), hm(10, 0), PlannedKind::Meeting, "Standup"),
         );
-        let lines = day_lines(&c, Weekday::Mon, NINE);
+        let lines = day_lines(&c, Weekday::Mon, NINE, 20);
         let got: Vec<_> = lines.iter().map(|l| (l.id, l.text.as_str())).collect();
         assert_eq!(
             got,
@@ -237,12 +237,12 @@ mod tests {
     fn off_grid_entries_say_how_they_count() {
         let meeting = PlannedWindow::new(hm(9, 30), hm(10, 0), PlannedKind::Meeting, "Sync");
         assert_eq!(
-            counts_as(&meeting, NINE).as_deref(),
+            counts_as(&meeting, NINE, 20).as_deref(),
             Some("Counts as 09:20–10:00 (40 min) on a 09:00 start")
         );
         let lunch = PlannedWindow::new(hm(12, 10), hm(12, 50), PlannedKind::Break, "Lunch");
         assert_eq!(
-            counts_as(&lunch, NINE).as_deref(),
+            counts_as(&lunch, NINE, 20).as_deref(),
             Some("Counts as 12:00–13:00 (60 min) on a 09:00 start")
         );
     }
@@ -250,16 +250,16 @@ mod tests {
     #[test]
     fn on_grid_entries_say_nothing() {
         let lunch = PlannedWindow::new(hm(12, 0), hm(13, 0), PlannedKind::Break, "Lunch");
-        assert_eq!(counts_as(&lunch, NINE), None);
+        assert_eq!(counts_as(&lunch, NINE, 20), None);
         // The same window is off-grid on an 08:50 start.
-        assert!(counts_as(&lunch, hm(8, 50)).is_some());
+        assert!(counts_as(&lunch, hm(8, 50), 20).is_some());
     }
 
     #[test]
     fn empty_days_have_no_lines() {
         let c = WeeklyCalendar::default();
         for (day, _) in WEEK {
-            assert!(day_lines(&c, day, NINE).is_empty());
+            assert!(day_lines(&c, day, NINE, 20).is_empty());
         }
     }
 

@@ -41,7 +41,7 @@ pub enum CalendarCommand {
 
 #[derive(Subcommand, Debug)]
 pub enum SettingsCommand {
-    /// Day start, finish, target, shortcut and weekly goal.
+    /// Day start, finish, target, cycle time, shortcut and weekly goal.
     Get,
     /// Change settings, checked like the Settings tab; nothing changes on error.
     Set {
@@ -51,6 +51,9 @@ pub enum SettingsCommand {
         end: Option<String>,
         #[arg(long, value_name = "POINTS")]
         target: Option<String>,
+        /// Minutes in one block, 5 to 100. Applies from the next day started.
+        #[arg(long, value_name = "MINUTES")]
+        cycle: Option<String>,
         /// A percent from 1 to 100, or off.
         #[arg(long, value_name = "N|off")]
         goal: Option<String>,
@@ -93,9 +96,9 @@ fn day_name(d: Weekday) -> &'static str {
     DAYS.iter().find(|(w, _)| *w == d).map_or("", |(_, n)| n)
 }
 
-fn entry_json(e: &CalendarEntry, day_start: u32) -> Value {
+fn entry_json(e: &CalendarEntry, day_start: u32, cycle: u32) -> Value {
     let w = &e.window;
-    let snapped = snap(w.clone(), day_start);
+    let snapped = snap(w.clone(), day_start, cycle);
     let counts_as = (snapped.start != w.start || snapped.end != w.end).then(|| {
         json!({ "from": hhmm(snapped.start), "to": hhmm(snapped.end), "minutes": snapped.end - snapped.start })
     });
@@ -110,10 +113,10 @@ fn entry_json(e: &CalendarEntry, day_start: u32) -> Value {
     })
 }
 
-fn calendar_state(calendar: &WeeklyCalendar, day_start: u32) -> Vec<Value> {
+fn calendar_state(calendar: &WeeklyCalendar, day_start: u32, cycle: u32) -> Vec<Value> {
     DAYS.iter()
         .flat_map(|(d, _)| calendar.entries_for(*d))
-        .map(|e| entry_json(e, day_start))
+        .map(|e| entry_json(e, day_start, cycle))
         .collect()
 }
 
@@ -129,7 +132,7 @@ pub fn run_calendar(ctx: &Context, cmd: &CalendarCommand) -> Result<Reply, CliEr
     match cmd {
         CalendarCommand::List => {
             let o = open(ctx, false)?;
-            Ok(json!({ "entries": calendar_state(&o.calendar, o.settings.core.default_start) }).into())
+            Ok(json!({ "entries": calendar_state(&o.calendar, o.settings.core.default_start, o.settings.core.cycle_minutes) }).into())
         }
         CalendarCommand::Add { day, from, to, kind, label } => {
             let choice = DayChoice::parse(day).ok_or_else(|| {
@@ -145,6 +148,7 @@ pub fn run_calendar(ctx: &Context, cmd: &CalendarCommand) -> Result<Reply, CliEr
                 .map_err(|m| CliError::new(Exit::Rule, "bad_entry", m))?;
             let saved = save_calendar(ctx, &o, &o.calendar)?;
             let day_start = o.settings.core.default_start;
+            let cycle = o.settings.core.cycle_minutes;
             let added: Vec<Value> = ids
                 .iter()
                 .filter_map(|id| {
@@ -152,7 +156,7 @@ pub fn run_calendar(ctx: &Context, cmd: &CalendarCommand) -> Result<Reply, CliEr
                         .flat_map(|(d, _)| o.calendar.entries_for(*d))
                         .find(|e| e.id == *id)
                 })
-                .map(|e| entry_json(e, day_start))
+                .map(|e| entry_json(e, day_start, cycle))
                 .collect();
             Ok(json!({ "added": added, "saved": saved }).into())
         }
@@ -163,7 +167,7 @@ pub fn run_calendar(ctx: &Context, cmd: &CalendarCommand) -> Result<Reply, CliEr
                     .hint("Run `office-oee calendar list` for the ids.")
             })?;
             let saved = save_calendar(ctx, &o, &o.calendar)?;
-            Ok(json!({ "removed": entry_json(&removed, o.settings.core.default_start), "saved": saved }).into())
+            Ok(json!({ "removed": entry_json(&removed, o.settings.core.default_start, o.settings.core.cycle_minutes), "saved": saved }).into())
         }
     }
 }
@@ -177,6 +181,7 @@ fn settings_json(s: &AppSettings) -> Value {
         "start": hhmm(s.core.default_start),
         "end": hhmm(s.core.default_end),
         "target": s.core.base_target,
+        "cycle_minutes": s.core.cycle_minutes,
         "shortcut": shortcut_json(&s.shortcut),
         "goal": { "enabled": s.goal.enabled, "percent": s.goal.percent },
     })
@@ -207,12 +212,13 @@ pub fn run_settings(ctx: &Context, cmd: &SettingsCommand) -> Result<Reply, CliEr
             let o = open(ctx, false)?;
             Ok(settings_json(&o.settings).into())
         }
-        SettingsCommand::Set { start, end, target, goal, shortcut } => {
+        SettingsCommand::Set { start, end, target, cycle, goal, shortcut } => {
             let o = open(ctx, true)?;
             let mut form = SettingsForm::from_settings(&o.settings);
             if let Some(v) = start { form.start = v.clone(); }
             if let Some(v) = end { form.end = v.clone(); }
             if let Some(v) = target { form.target = v.clone(); }
+            if let Some(v) = cycle { form.cycle = v.clone(); }
             if let Some(g) = goal {
                 if g.trim().eq_ignore_ascii_case("off") {
                     form.goal_on = false;

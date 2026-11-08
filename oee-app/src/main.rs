@@ -703,6 +703,7 @@ impl eframe::App for App {
                     &mut self.calendar,
                     &mut self.add_form,
                     core.default_start,
+                    core.cycle_minutes,
                 ),
                 tabs::Tab::Settings => save_settings = settings::show(ui, &mut self.settings_form),
                 _ => {}

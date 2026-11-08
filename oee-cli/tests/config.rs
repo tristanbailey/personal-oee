@@ -66,6 +66,18 @@ fn settings_set_changes_only_what_is_given_and_persists() {
 }
 
 #[test]
+fn the_cycle_time_is_a_setting_and_must_divide_the_day() {
+    let s = Sandbox::new("cycle");
+    assert_eq!(s.ok(&["settings", "get"])["result"]["cycle_minutes"], 20);
+    // 09:00–17:40 is 520 minutes; 30 does not divide it, so nothing changes.
+    s.err(&["settings", "set", "--cycle", "30"], 4, "bad_setting");
+    s.err(&["settings", "set", "--cycle", "3"], 4, "bad_setting");
+    assert_eq!(s.ok(&["settings", "get"])["result"]["cycle_minutes"], 20);
+    s.ok(&["settings", "set", "--cycle", "30", "--end", "18:00"]);
+    assert_eq!(s.ok(&["settings", "get"])["result"]["cycle_minutes"], 30);
+}
+
+#[test]
 fn bad_settings_are_refused_and_change_nothing() {
     let s = Sandbox::new("bad");
     s.err(&["settings", "set", "--target", "0"], 4, "bad_setting");
