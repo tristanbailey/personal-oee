@@ -189,7 +189,7 @@ pub const COMMANDS: &[Command] = &[
     },
     Command {
         name: "settings get",
-        summary: "Day start, finish, daily target, shortcut and weekly goal",
+        summary: "Day start, finish, daily target, cycle time, shortcut and weekly goal",
         writes: false,
         args: &[],
     },
@@ -200,6 +200,7 @@ pub const COMMANDS: &[Command] = &[
         args: &[
             ("--start <HH:MM> --end <HH:MM>", "default day hours"),
             ("--target <N>", "daily target, 1 to 100"),
+            ("--cycle <MINUTES>", "block length, 5 to 100, dividing the day evenly; applies from the next day started"),
             ("--goal <N|off>", "weekly OEE goal percent, or off"),
             ("--shortcut <KEYS>", "for example ctrl+alt+D"),
         ],
@@ -260,13 +261,13 @@ pub const COMMANDS: &[Command] = &[
     },
     Command {
         name: "export csv",
-        summary: "The days and blocks CSV files (reads data; writes only to --out)",
+        summary: "The days, blocks and spreadsheet totals CSV files (reads data; writes only to --out)",
         writes: false,
         args: &[
             ("--from <DATE> --to <DATE>", "range (default: the week of --date)"),
             ("--all", "every saved day"),
-            ("--out <DIR>", "write both files here, never overwriting"),
-            ("--stdout days|blocks", "return one file's text in the result"),
+            ("--out <DIR>", "write the days, blocks and totals files here, never overwriting"),
+            ("--stdout days|blocks|totals", "return one file's text in the result"),
         ],
     },
 ];
@@ -358,6 +359,7 @@ pub fn schema_for(name: &str) -> Option<Value> {
             ("start", string()),
             ("end", string()),
             ("target", json!({ "type": "integer" })),
+            ("cycle_minutes", json!({ "type": "integer", "description": "block length in minutes (default 20)" })),
             ("shortcut", json!({ "type": "object", "description": "label, ctrl, alt, shift, cmd, key" })),
             ("goal", json!({ "type": "object", "description": "enabled, percent" })),
         ]),
@@ -418,7 +420,7 @@ pub fn schema_for(name: &str) -> Option<Value> {
             ("to", string()),
             ("days", json!({ "type": "integer" })),
             ("weekdays_note", string()),
-            ("files", json!({ "type": ["object", "null"], "description": "written, days, blocks (paths)" })),
+            ("files", json!({ "type": ["object", "null"], "description": "written, days, blocks, totals (paths)" })),
             ("csv", json!({ "type": ["string", "null"], "description": "the file's text with --stdout" })),
         ]),
         "day delete" => object(&[

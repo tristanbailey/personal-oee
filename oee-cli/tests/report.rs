@@ -207,6 +207,36 @@ fn export_returns_csv_text_with_one_row_per_day() {
 }
 
 #[test]
+fn export_returns_the_spreadsheet_totals_matching_the_engine() {
+    let s = Sandbox::new("totals");
+    let v = s.ok(&["export", "csv", "--from", "2026-10-26", "--to", "2026-10-28", "--stdout", "totals"]);
+    let csv = v["result"]["csv"].as_str().unwrap();
+    let lines: Vec<_> = csv.lines().collect();
+    assert_eq!(
+        lines[0],
+        "Start Date,Week num,Total downtime,Total shift,Planned Non-Productive,System down,\
+         Change over,Idle,Manage,Wait,Total points,Rework points,Cycle time"
+    );
+    // Tue 27 Oct, from the engine: an hour lost (uncategorised = System Down), two rework marks.
+    let i = tuesday().inputs(&Settings::default());
+    assert_eq!(
+        lines[2],
+        format!(
+            "Oct 27,44,{},{},{},{},0,0,0,0,{},{},20",
+            i.downtime_minutes(),
+            i.day_minutes,
+            i.planned_minutes,
+            i.losses.get(oee_core::LostCategory::SystemDown),
+            i.work_points,
+            i.rework_points
+        )
+    );
+    assert_eq!(lines[2], "Oct 27,44,60,520,0,60,0,0,0,0,23,2,20");
+    // Wed 28 Oct, nothing logged: a row of zeros.
+    assert_eq!(lines[3], "Oct 28,44,0,0,0,0,0,0,0,0,0,0,0");
+}
+
+#[test]
 fn export_writes_both_files_and_never_overwrites() {
     let s = Sandbox::new("files");
     let out = s.dir.join("exports");
@@ -217,12 +247,15 @@ fn export_writes_both_files_and_never_overwrites() {
     assert!(days.ends_with("oee-days-2026-10-26-2026-10-27.csv"), "{days}");
     assert!(std::fs::read_to_string(days).unwrap().starts_with('\u{feff}'));
     assert!(std::path::Path::new(blocks).exists());
+    let totals = a["result"]["files"]["totals"].as_str().unwrap();
+    assert!(totals.ends_with("oee-totals-2026-10-26-2026-10-27.csv"), "{totals}");
+    assert!(std::fs::read_to_string(totals).unwrap().starts_with("\u{feff}Start Date,"));
     let b = s.ok(&["export", "csv", "--all", "--out", out]);
     assert!(b["result"]["files"]["days"].as_str().unwrap().ends_with("(2).csv"));
     // A dry run writes nothing.
     let c = s.ok(&["export", "csv", "--all", "--out", out, "--dry-run"]);
     assert_eq!(c["result"]["files"]["written"], false);
-    assert_eq!(std::fs::read_dir(out).unwrap().count(), 4);
+    assert_eq!(std::fs::read_dir(out).unwrap().count(), 6);
 }
 
 #[test]

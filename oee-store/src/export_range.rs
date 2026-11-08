@@ -1,5 +1,5 @@
 //! Which dates a CSV export covers, the rows for them, and writing the files
-//! (D-51, D-52). The Week tab's export panel is in `oee-app`.
+//! (D-51, D-52, D-60). The Week tab's export panel is in `oee-app`.
 
 use std::io;
 use std::path::{Path, PathBuf};
@@ -123,6 +123,13 @@ pub fn write_files(
     Ok((days, blocks))
 }
 
+/// D-60: write the spreadsheet totals file into `dir`, never overwriting.
+pub fn write_totals(dir: &Path, from: NaiveDate, to: NaiveDate, totals_csv: &str) -> io::Result<PathBuf> {
+    let path = free_path(dir, &format!("oee-totals-{from}-{to}"));
+    std::fs::write(&path, format!("{BOM}{totals_csv}"))?;
+    Ok(path)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -208,6 +215,19 @@ mod tests {
         assert!(a2.ends_with("oee-days-2026-10-26-2026-10-30 (2).csv"));
         assert_eq!(std::fs::read_to_string(a).unwrap(), "\u{feff}one");
         assert_eq!(std::fs::read_to_string(a2).unwrap(), "\u{feff}two");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn an_earlier_totals_export_is_not_overwritten() {
+        let dir = std::env::temp_dir().join(format!("oee-export-totals-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let a = write_totals(&dir, d(26), d(30), "one").unwrap();
+        assert!(a.ends_with("oee-totals-2026-10-26-2026-10-30.csv"));
+        let b = write_totals(&dir, d(26), d(30), "two").unwrap();
+        assert!(b.ends_with("oee-totals-2026-10-26-2026-10-30 (2).csv"));
+        assert_eq!(std::fs::read_to_string(a).unwrap(), "\u{feff}one");
         let _ = std::fs::remove_dir_all(&dir);
     }
 }

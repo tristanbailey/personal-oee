@@ -71,7 +71,7 @@ impl Tracker {
     /// start extends the day back to it. Starting at or after the finish time
     /// gives a one-block day. Planned windows come from the weekly calendar.
     pub fn start_day(now: u32, planned: Vec<PlannedWindow>, settings: Settings) -> Self {
-        let block = crate::rules::BLOCK_MINUTES;
+        let block = settings.cycle_minutes.max(crate::rules::MIN_CYCLE_MINUTES);
         let first = now / block * block;
         let (start, end) = if first >= settings.default_end {
             (first, first + block)
@@ -81,7 +81,7 @@ impl Tracker {
                 settings.default_end.max(first + block),
             )
         };
-        let mut record = DayRecord::new(start, end, planned);
+        let mut record = DayRecord::with_cycle(start, end, planned, block);
         record.add_downtime(start, first);
         record.scored_with = Some(settings);
         Self {
@@ -161,7 +161,7 @@ impl Tracker {
                 let minutes = now.saturating_sub(since);
                 stopped = Some(StopSummary {
                     minutes,
-                    lost_blocks: crate::rules::lost_blocks(minutes),
+                    lost_blocks: crate::rules::lost_blocks_in(minutes, self.record.cycle_minutes),
                 });
                 Mode::Work
             }
@@ -256,7 +256,7 @@ impl Tracker {
             return notices;
         }
         self.record.end = now
-            .max(self.record.start + crate::rules::BLOCK_MINUTES)
+            .max(self.record.start + self.record.cycle_minutes)
             .min(self.record.end);
         notices.extend(self.end_day());
         self.sync();

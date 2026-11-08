@@ -29,12 +29,12 @@ fn lost_block_counting() {
 
 #[test]
 fn change_over_counts_ten_minutes() {
-    assert_eq!(LostCategory::ChangeOver.downtime_minutes(), 10);
+    assert_eq!(LostCategory::ChangeOver.downtime_minutes(20), 10);
     for c in LostCategory::ALL
         .into_iter()
         .filter(|c| *c != LostCategory::ChangeOver)
     {
-        assert_eq!(c.downtime_minutes(), 20, "{}", c.label());
+        assert_eq!(c.downtime_minutes(20), 20, "{}", c.label());
     }
 }
 

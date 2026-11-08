@@ -148,7 +148,7 @@ fn play(scenario: &Value, sandbox: &Sandbox, default_date: chrono::NaiveDate, sy
     if let Some(s) = scenario["settings"].as_object() {
         let mut args = vec!["settings", "set"];
         let mut owned = Vec::new();
-        for (k, flag) in [("start", "--start"), ("end", "--end"), ("target", "--target"), ("goal", "--goal")] {
+        for (k, flag) in [("start", "--start"), ("end", "--end"), ("target", "--target"), ("cycle", "--cycle"), ("goal", "--goal")] {
             if let Some(v) = s.get(k) {
                 owned.push((flag, v.as_str().map_or_else(|| v.to_string(), str::to_string)));
             }

@@ -1,6 +1,6 @@
 //! `office-oee check`: read every saved file and test the invariants.
 
-use oee_core::{day_result, BlockKind, Settings, BLOCK_MINUTES};
+use oee_core::{day_result, BlockKind, Settings};
 
 use crate::store::Store;
 
@@ -53,14 +53,14 @@ pub fn run(store: &Store, fallback: &Settings) -> Report {
             }
         };
         report.days_checked += 1;
-        if record.end <= record.start || (record.end - record.start) % BLOCK_MINUTES != 0 {
-            problem(&mut report, &file, "bad_day_length", format!("{}–{} is not a whole number of 20-minute blocks", record.start, record.end));
+        if record.end <= record.start || record.cycle_minutes == 0 || (record.end - record.start) % record.cycle_minutes != 0 {
+            problem(&mut report, &file, "bad_day_length", format!("{}–{} is not a whole number of {}-minute blocks", record.start, record.end, record.cycle_minutes));
             continue;
         }
         let blocks = record.blocks();
         let tiles = blocks.len() as u32 == record.slot_count()
             && blocks.iter().enumerate().all(|(i, b)| {
-                b.start == record.start + i as u32 * BLOCK_MINUTES && b.end == b.start + BLOCK_MINUTES
+                b.start == record.start + i as u32 * record.cycle_minutes && b.end == b.start + record.cycle_minutes
             });
         if !tiles {
             problem(&mut report, &file, "blocks_do_not_tile", "the blocks don't cover the day exactly".into());

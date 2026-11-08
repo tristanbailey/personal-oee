@@ -3,7 +3,7 @@
 use chrono::{Duration, NaiveDate};
 use eframe::egui::{self, Color32, RichText};
 use oee_core::{
-    day_result, over_capacity_days, DayInputs, DayRecord, DayStatus, LostCategory, Metrics, Settings, BLOCK_MINUTES,
+    day_result, over_capacity_days, DayInputs, DayRecord, DayStatus, LostCategory, Metrics, Settings,
 };
 
 use crate::theme;
@@ -121,15 +121,15 @@ pub struct Bar {
 }
 
 /// FR-042: minutes lost per category, then the Rework block count. Category bars
-/// are scaled to the largest; the Rework bar counts each block as 20 minutes so
+/// are scaled to the largest; the Rework bar counts each block as one cycle (`cycle` minutes) so
 /// it sits on the same scale.
-pub fn loss_bars(totals: &DayInputs) -> Vec<Bar> {
+pub fn loss_bars(totals: &DayInputs, cycle: u32) -> Vec<Bar> {
     let largest = LostCategory::ALL
         .iter()
         .map(|c| totals.losses.get(*c))
         .max()
         .unwrap_or(0)
-        .max(totals.rework_points * BLOCK_MINUTES);
+        .max(totals.rework_points * cycle);
     let scale = |minutes: u32| {
         if largest == 0 {
             0.0
@@ -157,7 +157,7 @@ pub fn loss_bars(totals: &DayInputs) -> Vec<Bar> {
     bars.push(Bar {
         label: "Rework",
         value: format!("{rework} block{}", if rework == 1 { "" } else { "s" }),
-        fraction: scale(rework * BLOCK_MINUTES),
+        fraction: scale(rework * cycle),
         kind: BarKind::Rework,
     });
     bars
@@ -318,7 +318,7 @@ impl WeekView {
         WeekView {
             working_days: working_days(days),
             oee: rep.metrics.oee,
-            losses: loss_bars(&rep.totals),
+            losses: loss_bars(&rep.totals, settings.cycle_minutes),
             tiles: week_tiles(&rep),
             rows,
             total: TableRow {

@@ -1,6 +1,7 @@
 {
   "core": {
     "base_target": 20,
+    "cycle_minutes": 20,
     "default_end": 1060,
     "default_start": 540
   },

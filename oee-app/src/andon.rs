@@ -3,7 +3,7 @@
 use eframe::egui::{self, Color32, Sense, Stroke, Vec2};
 
 use crate::theme;
-use oee_core::{Mode, PlannedKind, StopSummary, Tracker, BLOCK_MINUTES};
+use oee_core::{Mode, PlannedKind, StopSummary, Tracker};
 
 fn hhmm(m: u32) -> String {
     format!("{:02}:{:02}", m / 60, m % 60)
@@ -32,8 +32,9 @@ pub fn sub_line(tracker: Option<&Tracker>, now: u32) -> String {
         Mode::Work => {
             let into = now.saturating_sub(t.record.start);
             let total = t.record.slot_count().max(1);
-            let block = (into / BLOCK_MINUTES + 1).min(total);
-            let left = BLOCK_MINUTES - into % BLOCK_MINUTES;
+            let cycle = t.record.cycle_minutes;
+            let block = (into / cycle + 1).min(total);
+            let left = cycle - into % cycle;
             format!("Block {block} of {total} · {left} min left")
         }
         Mode::Downtime { since } => {

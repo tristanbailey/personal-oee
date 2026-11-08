@@ -4,7 +4,6 @@ use serde::{Deserialize, Serialize};
 
 use std::ops::AddAssign;
 
-use crate::rules::BLOCK_MINUTES;
 
 /// FR-009, FR-024: the five fixed lost-time categories.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
@@ -26,11 +25,12 @@ impl LostCategory {
     ];
 
     /// Downtime minutes one block of this category counts for in Availability.
-    /// FR-015: Change Over counts as 10 minutes, though it displays as 20.
-    pub fn downtime_minutes(self) -> u32 {
+    /// FR-015: Change Over counts as half a block (10 minutes at the default
+    /// 20), though it displays as a whole block.
+    pub fn downtime_minutes(self, cycle: u32) -> u32 {
         match self {
-            Self::ChangeOver => BLOCK_MINUTES / 2,
-            _ => BLOCK_MINUTES,
+            Self::ChangeOver => cycle / 2,
+            _ => cycle,
         }
     }
 
