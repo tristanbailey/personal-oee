@@ -278,4 +278,4 @@ Suggested order: C-01 (done) → C-02 → C-03 → C-04 → C-05 → C-08 (the r
 2. **Output:** JSON by default; `--text` for a human summary.
 3. **Real versus test data:** writes must say which, with `--real` (the app's folder) or `--data-dir <path>` (a test folder). No flag means refusal (exit 7), not a guess.
 4. **Crate extraction first:** done as C-01 (see section 3).
-5. **Open:** whether to ship the lock file (C-11) with the first CLI release.
+5. **Lock file:** shipped. C-11 is built: the app holds `<data-dir>/.lock` while open and CLI writes are refused (exit 6) unless `--force`; C-13 makes the app reload a day changed that way.

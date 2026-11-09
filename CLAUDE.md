@@ -2,7 +2,7 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-Personal OEE is a Mac desktop app (Rust, eframe/egui) that tracks a working day in 20-minute blocks and scores it with OEE. Requirements are in `docs/PRD.md` (FR-/NFR- IDs); the app's task list is `docs/DESKTOP_BACKLOG.md` (D-xx IDs); the CLI contract is `docs/CLI_API.md` (C-xx IDs). Code comments cite these IDs. The README's status table is out of date.
+Personal OEE is a Mac desktop app (Rust, eframe/egui) that tracks a working day in 20-minute blocks and scores it with OEE. Requirements are in `docs/PRD.md` (FR-/NFR- IDs); the app's task list is `docs/DESKTOP_BACKLOG.md` (D-xx IDs); the CLI contract is `docs/CLI_API.md` (C-xx IDs). Code comments cite these IDs.
 
 ## Commands
 
