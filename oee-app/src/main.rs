@@ -944,6 +944,9 @@ fn main() -> eframe::Result<()> {
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
             .with_inner_size([820.0, 560.0])
+            // An empty icon tells eframe to leave the Dock icon alone, so the
+            // bundle's AppIcon stays instead of eframe's default "e" logo.
+            .with_icon(egui::IconData::default())
             .with_visible(!lifecycle::start_hidden(
                 std::env::var(lifecycle::HIDDEN_ENV).ok().as_deref(),
             )),
