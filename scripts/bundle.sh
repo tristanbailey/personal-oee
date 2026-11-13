@@ -30,8 +30,8 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
 <key>CFBundleIdentifier</key><string>com.tristanbailey.personaloee</string>
 <key>CFBundleExecutable</key><string>PersonalOEE</string>
 <key>CFBundleIconFile</key><string>AppIcon</string>
-<key>CFBundleVersion</key><string>1.0.8</string>
-<key>CFBundleShortVersionString</key><string>1.0.8</string>
+<key>CFBundleVersion</key><string>1.0.9</string>
+<key>CFBundleShortVersionString</key><string>1.0.9</string>
 <key>CFBundlePackageType</key><string>APPL</string>
 <key>NSHighResolutionCapable</key><true/>
 </dict></plist>
